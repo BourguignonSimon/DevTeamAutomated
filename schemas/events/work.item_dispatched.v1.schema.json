@@ -5,10 +5,40 @@
   "x_event_type": "WORK.ITEM_DISPATCHED",
   "type": "object",
   "additionalProperties": false,
-  "required": ["project_id", "backlog_item_id", "agent"],
+  "required": ["project_id", "backlog_item_id", "agent_target", "work_context"],
   "properties": {
-    "project_id": {"type": "string"},
+    "project_id": {"type": "string", "format": "uuid"},
     "backlog_item_id": {"type": "string", "format": "uuid"},
-    "agent": {"type": "string"}
+    "item_type": {"type": "string"},
+    "agent_target": {"type": "string"},
+    "work_context": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["rows"],
+      "properties": {
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["estimated_minutes"],
+            "properties": {
+              "category": {"type": "string"},
+              "estimated_minutes": {"type": "number", "minimum": 0},
+              "text": {"type": "string"}
+            }
+          }
+        },
+        "hourly_rate": {"type": "number", "minimum": 0},
+        "period": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {"type": "string"},
+            "working_days": {"type": "number", "minimum": 0}
+          }
+        }
+      }
+    }
   }
 }
