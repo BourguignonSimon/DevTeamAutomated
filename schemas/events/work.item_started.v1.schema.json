@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/work.item_started.v1.schema.json",
+  "title": "WORK.ITEM_STARTED payload v1",
+  "x_event_type": "WORK.ITEM_STARTED",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project_id", "backlog_item_id"],
+  "properties": {
+    "project_id": {"type": "string", "format": "uuid"},
+    "backlog_item_id": {"type": "string", "format": "uuid"},
+    "started_at": {"type": "string", "format": "date-time"}
+  }
+}

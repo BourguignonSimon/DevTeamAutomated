@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/report.final_published.v1.schema.json",
+  "title": "REPORT.FINAL_PUBLISHED payload v1",
+  "x_event_type": "REPORT.FINAL_PUBLISHED",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project_id",
+    "report"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "report": {
+      "type": "object",
+      "description": "Final report metadata or snapshot.",
+      "additionalProperties": true
+    },
+    "artifact_uri": {
+      "type": "string"
+    }
+  }
+}

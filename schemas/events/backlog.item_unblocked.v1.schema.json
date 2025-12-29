@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/backlog.item_unblocked.v1.schema.json",
+  "title": "BACKLOG.ITEM_UNBLOCKED payload v1",
+  "x_event_type": "BACKLOG.ITEM_UNBLOCKED",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project_id", "backlog_item_id", "question_id"],
+  "properties": {
+    "project_id": {"type": "string", "format": "uuid"},
+    "backlog_item_id": {"type": "string", "format": "uuid"},
+    "question_id": {"type": "string", "format": "uuid"}
+  }
+}

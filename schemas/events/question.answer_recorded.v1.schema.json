@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/question.answer_recorded.v1.schema.json",
+  "title": "QUESTION.ANSWER_RECORDED payload v1",
+  "x_event_type": "QUESTION.ANSWER_RECORDED",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project_id",
+    "question_id",
+    "answer"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "question_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "answer": {
+      "type": "object",
+      "description": "Normalized accepted answer.",
+      "additionalProperties": true
+    },
+    "accepted": {
+      "type": "boolean"
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

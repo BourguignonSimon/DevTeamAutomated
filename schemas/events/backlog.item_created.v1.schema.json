@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/backlog.item_created.v1.schema.json",
+  "title": "BACKLOG.ITEM_CREATED payload v1",
+  "x_event_type": "BACKLOG.ITEM_CREATED",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project_id",
+    "backlog_item"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "backlog_item": {
+      "type": "object",
+      "description": "BacklogItem snapshot at creation time.",
+      "additionalProperties": true
+    }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/work.item_reviewed.v1.schema.json",
+  "title": "WORK.ITEM_REVIEWED payload v1",
+  "x_event_type": "WORK.ITEM_REVIEWED",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project_id",
+    "backlog_item_id",
+    "review"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "backlog_item_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result"
+      ],
+      "properties": {
+        "result": {
+          "type": "string",
+          "enum": [
+            "approved",
+            "rejected",
+            "needs_changes"
+          ]
+        },
+        "notes": {
+          "type": "string"
+        },
+        "reviewer": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

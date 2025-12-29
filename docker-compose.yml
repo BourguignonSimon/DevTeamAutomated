@@ -1,0 +1,47 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: audit_redis
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 1s
+      retries: 30
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: services/orchestrator/Dockerfile
+    container_name: audit_orchestrator
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_NAME: orchestrator-1
+      LOCK_TTL_S: 300
+      IDEMPOTENCE_TTL_S: 604800
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  tests:
+    build:
+      context: .
+      dockerfile: services/orchestrator/Dockerfile
+    container_name: audit_tests
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      LOCK_TTL_S: 300
+      IDEMPOTENCE_TTL_S: 604800
+    depends_on:
+      redis:
+        condition: service_healthy
+      orchestrator:
+        condition: service_started
+    command: ["pytest", "-q"]
