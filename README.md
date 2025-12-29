@@ -1,4 +1,4 @@
-# Audit Flash OS (EPIC 1 + EPIC 2)
+# Audit Flash
 
 This package includes:
 - **EPIC 1**: strict JSON contracts (EventEnvelope + payload schemas) and a generic validator consumer.
