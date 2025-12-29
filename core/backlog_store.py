@@ -28,6 +28,9 @@ class BacklogStore:
     def _status_index(self, project_id: str, status: str) -> str:
         return f"{self.prefix}:project:{project_id}:backlog:status:{status}"
 
+    def _projects_index(self) -> str:
+        return f"{self.prefix}:projects:index"
+
     @staticmethod
     def _decode(v) -> str:
         if isinstance(v, bytes):
@@ -45,6 +48,7 @@ class BacklogStore:
 
         self.r.set(self._key(project_id, item_id), json.dumps(item))
         self.r.sadd(self._index(project_id), item_id)
+        self.r.sadd(self._projects_index(), project_id)
 
         if prev_status and prev_status != new_status:
             self.r.srem(self._status_index(project_id, prev_status), item_id)
@@ -87,3 +91,7 @@ class BacklogStore:
             it = self.get_item(project_id, item_id)
             if it:
                 yield it
+
+    def list_project_ids(self) -> List[str]:
+        ids = [self._decode(x) for x in self.r.smembers(self._projects_index())]
+        return sorted(ids)

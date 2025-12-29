@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 import uuid
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
@@ -30,13 +31,13 @@ def envelope(
     source: str,
     correlation_id: str,
     causation_id: Optional[str],
-    event_version: str = "1.0",
+    event_version: int = 1,
 ) -> Dict[str, Any]:
     return {
         "event_id": str(uuid.uuid4()),
         "event_type": event_type,
         "event_version": event_version,
-        "timestamp": "2025-01-01T00:00:00Z",  # deterministic is fine for MVP/tests
+        "timestamp": _now_iso(),
         "source": {"service": source, "instance": source},
         "correlation_id": correlation_id,
         "causation_id": causation_id,
@@ -51,7 +52,7 @@ def _backlog_template(project_id: str) -> List[Dict[str, Any]]:
     # Keep deterministic + >= 3 items for regression tests
     return [
         {
-            "id": f"{project_id}:T1",
+            "id": str(uuid.uuid4()),
             "project_id": project_id,
             "type": "TASK",
             "title": "Collect requirements",
@@ -60,7 +61,7 @@ def _backlog_template(project_id: str) -> List[Dict[str, Any]]:
             "evidence": [],
         },
         {
-            "id": f"{project_id}:T2",
+            "id": str(uuid.uuid4()),
             "project_id": project_id,
             "type": "TASK",
             "title": "Run checks",
@@ -69,7 +70,7 @@ def _backlog_template(project_id: str) -> List[Dict[str, Any]]:
             "evidence": [],
         },
         {
-            "id": f"{project_id}:T3",
+            "id": str(uuid.uuid4()),
             "project_id": project_id,
             "type": "TASK",
             "title": "Produce report",
@@ -119,13 +120,16 @@ def _dlq(r, reason: str, original_fields: Any, schema_id: Optional[str] = None) 
         event_type = original_event.get("event_type")
 
     publish_dlq(
-        redis_client=r,
-        dlq_stream=Settings().dlq_stream,  # safe: reads env defaults
-        reason=f"{reason}" + (f" (schema={schema_id})" if schema_id else ""),
-        original_event=original_event,
-        event_id=event_id,
-        event_type=event_type,
+        r,
+        Settings().dlq_stream,  # safe: reads env defaults
+        f"{reason}" + (f" (schema={schema_id})" if schema_id else ""),
+        original_fields,
+        schema_id=schema_id,
     )
+
+
+def _now_iso() -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
 # ----------------------------
@@ -231,6 +235,8 @@ def process_message(
                 )
                 r.xadd(settings.stream_name, {"event": json.dumps(c_env)})
 
+            _dispatch_ready_tasks(r, settings, store, corr, caus)
+
         elif event_type == "USER.ANSWER_SUBMITTED":
             project_id = payload["project_id"]
             question_id = payload["question_id"]
@@ -252,6 +258,8 @@ def process_message(
                     causation_id=caus,
                 )
                 r.xadd(settings.stream_name, {"event": json.dumps(ub_env)})
+
+                _dispatch_ready_tasks(r, settings, store, corr, caus)
 
         # else: ignore other event_types for EPIC3 scope
 
@@ -289,7 +297,7 @@ def _dispatch_ready_tasks(r, settings, store: "BacklogStore", correlation_id: st
             env = {
                 "event_id": str(uuid.uuid4()),
                 "event_type": "WORK.ITEM_DISPATCHED",
-                "event_version": "1.0",
+                "event_version": 1,
                 "timestamp": _now_iso(),
                 "source": {"service": "orchestrator", "instance": settings.consumer_name},
                 "correlation_id": correlation_id,
@@ -302,13 +310,14 @@ def _dispatch_ready_tasks(r, settings, store: "BacklogStore", correlation_id: st
             }
             r.xadd(settings.stream_name, {"event": json.dumps(env)})
 
-            # Update status if your store supports it
             if hasattr(store, "set_status"):
-                try:
-                    store.set_status(project_id, item_id, "DISPATCHED")
-                except Exception:
-                    # Don't explode during dispatch; tests care about event emission
-                    pass
+                current = store.get_item(project_id, item_id)
+                if current:
+                    try:
+                        assert_transition(current.get("status"), BacklogStatus.IN_PROGRESS.value)
+                        store.set_status(project_id, item_id, BacklogStatus.IN_PROGRESS.value)
+                    except Exception:
+                        pass
 
             dispatched += 1
 

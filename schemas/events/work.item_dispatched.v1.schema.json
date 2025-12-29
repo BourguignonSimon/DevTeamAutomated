@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/work.item_dispatched.v1.schema.json",
+  "title": "WORK.ITEM_DISPATCHED payload v1",
+  "x_event_type": "WORK.ITEM_DISPATCHED",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project_id", "backlog_item_id", "agent"],
+  "properties": {
+    "project_id": {"type": "string"},
+    "backlog_item_id": {"type": "string", "format": "uuid"},
+    "agent": {"type": "string"}
+  }
+}

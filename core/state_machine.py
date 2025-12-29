@@ -39,4 +39,5 @@ def is_allowed(from_status: BacklogStatus, to_status: BacklogStatus) -> bool:
 def assert_transition(from_status: BacklogStatus, to_status: BacklogStatus) -> TransitionResult:
     if is_allowed(from_status, to_status):
         return TransitionResult(True, from_status, to_status, None)
-    return TransitionResult(False, from_status, to_status, f"Illegal transition {from_status} -> {to_status}")
+    res = TransitionResult(False, from_status, to_status, f"Illegal transition {from_status} -> {to_status}")
+    raise ValueError(res.reason)
