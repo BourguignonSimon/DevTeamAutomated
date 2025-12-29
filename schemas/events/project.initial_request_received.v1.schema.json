@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ProjectInitialRequestReceived",
+  "type": "object",
+  "x_event_type": "PROJECT.INITIAL_REQUEST_RECEIVED",
+  "properties": {
+    "project_id": {"type": "string"},
+    "request_text": {"type": "string"}
+  },
+  "required": ["project_id", "request_text"],
+  "additionalProperties": false
+}
