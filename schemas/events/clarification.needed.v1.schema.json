@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/clarification.needed.v1.schema.json",
+  "title": "CLARIFICATION.NEEDED payload v1",
+  "x_event_type": "CLARIFICATION.NEEDED",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project_id", "backlog_item_id", "reason"],
+  "properties": {
+    "project_id": {"type": "string", "format": "uuid"},
+    "backlog_item_id": {"type": "string", "format": "uuid"},
+    "reason": {"type": "string"},
+    "missing_fields": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "agent": {"type": "string"}
+  }
+}

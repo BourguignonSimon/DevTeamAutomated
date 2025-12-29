@@ -58,6 +58,66 @@ services:
       redis:
         condition: service_healthy
 
+  time_waste_worker:
+    build:
+      context: .
+      dockerfile: services/time_waste_worker/Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: time_waste_workers
+      CONSUMER_NAME: time-waste-1
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  cost_worker:
+    build:
+      context: .
+      dockerfile: services/cost_worker/Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: cost_workers
+      CONSUMER_NAME: cost-1
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  friction_worker:
+    build:
+      context: .
+      dockerfile: services/friction_worker/Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: friction_workers
+      CONSUMER_NAME: friction-1
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  scenario_worker:
+    build:
+      context: .
+      dockerfile: services/scenario_worker/Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: scenario_workers
+      CONSUMER_NAME: scenario-1
+    depends_on:
+      redis:
+        condition: service_healthy
+
   tests:
     build:
       context: .
