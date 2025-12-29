@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/question.created.v1.schema.json",
+  "title": "QUESTION.CREATED payload v1",
+  "x_event_type": "QUESTION.CREATED",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["question"],
+  "properties": {
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "project_id", "backlog_item_id", "question_text", "answer_type", "status"],
+      "properties": {
+        "id": {"type": "string", "format": "uuid"},
+        "project_id": {"type": "string"},
+        "backlog_item_id": {"type": "string", "format": "uuid"},
+        "question_text": {"type": "string"},
+        "answer_type": {"type": "string"},
+        "status": {"type": "string"},
+        "correlation_id": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

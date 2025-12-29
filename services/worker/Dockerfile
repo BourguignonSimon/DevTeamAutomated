@@ -5,9 +5,6 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 COPY core ./core
 COPY schemas ./schemas
-COPY services/orchestrator ./services/orchestrator
-COPY demo ./demo
-COPY pytest.ini ./
-COPY tests ./tests
+COPY services/worker ./services/worker
 ENV PYTHONPATH=/app
-CMD ["python", "-m", "services.orchestrator.main"]
+CMD ["python", "-m", "services.worker.main"]
