@@ -7,6 +7,7 @@ COPY core ./core
 COPY schemas ./schemas
 COPY services/orchestrator ./services/orchestrator
 COPY demo ./demo
+COPY pytest.ini ./
 COPY tests ./tests
 ENV PYTHONPATH=/app
 CMD ["python", "-m", "services.orchestrator.main"]
