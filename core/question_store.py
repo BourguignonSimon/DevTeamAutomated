@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from typing import Any, Dict, List, Optional
 
 import redis
@@ -41,6 +42,29 @@ class QuestionStore:
             return v.decode("utf-8")
         return str(v)
 
+    def create_question(
+        self,
+        *,
+        project_id: str,
+        backlog_item_id: str,
+        question_text: str,
+        answer_type: str,
+        status: str = "OPEN",
+        correlation_id: str | None = None,
+    ) -> Dict[str, Any]:
+        qid = str(uuid.uuid4())
+        q = {
+            "id": qid,
+            "project_id": project_id,
+            "backlog_item_id": backlog_item_id,
+            "question_text": question_text,
+            "answer_type": answer_type,
+            "status": status,
+            "correlation_id": correlation_id,
+        }
+        self.put_question(q)
+        return q
+
     def put_question(self, q: Dict[str, Any]) -> None:
         project_id = q["project_id"]
         qid = q["id"]
@@ -75,3 +99,12 @@ class QuestionStore:
         if isinstance(raw, bytes):
             raw = raw.decode("utf-8")
         return json.loads(raw)
+
+    def close_question(self, project_id: str, question_id: str) -> None:
+        q = self.get_question(project_id, question_id)
+        if not q:
+            return
+        if q.get("status") != "CLOSED":
+            q["status"] = "CLOSED"
+            self.r.set(self._qkey(project_id, question_id), json.dumps(q))
+        self.r.srem(self._open(project_id), question_id)

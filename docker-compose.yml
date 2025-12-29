@@ -20,9 +20,40 @@ services:
       REDIS_PORT: 6379
       STREAM_NAME: audit:events
       DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: orchestrator
       CONSUMER_NAME: orchestrator-1
       LOCK_TTL_S: 300
       IDEMPOTENCE_TTL_S: 604800
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  validator:
+    build:
+      context: .
+      dockerfile: services/stream_consumer/Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: validators
+      CONSUMER_NAME: validator-1
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: services/worker/Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: workers
+      CONSUMER_NAME: worker-1
     depends_on:
       redis:
         condition: service_healthy
