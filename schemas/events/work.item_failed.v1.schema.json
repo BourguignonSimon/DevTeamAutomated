@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/work.item_failed.v1.schema.json",
+  "title": "WORK.ITEM_FAILED payload v1",
+  "x_event_type": "WORK.ITEM_FAILED",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project_id", "backlog_item_id", "reason"],
+  "properties": {
+    "project_id": {"type": "string", "format": "uuid"},
+    "backlog_item_id": {"type": "string", "format": "uuid"},
+    "reason": {"type": "string", "minLength": 1}
+  }
+}

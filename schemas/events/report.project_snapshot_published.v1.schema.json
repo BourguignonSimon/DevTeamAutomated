@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/report.project_snapshot_published.v1.schema.json",
+  "title": "REPORT.PROJECT_SNAPSHOT_PUBLISHED payload v1",
+  "x_event_type": "REPORT.PROJECT_SNAPSHOT_PUBLISHED",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project_id",
+    "snapshot"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "snapshot": {
+      "type": "object",
+      "description": "Project snapshot payload (progress, items, deliverables).",
+      "additionalProperties": true
+    }
+  }
+}
