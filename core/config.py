@@ -8,6 +8,13 @@ class Settings:
     redis_port: int = int(os.getenv("REDIS_PORT", "6379"))
     redis_db: int = int(os.getenv("REDIS_DB", "0"))
 
+    # Agent manager timeouts (seconds)
+    analyze_timeout_s: int = int(os.getenv("ANALYZE_TIMEOUT_S", "600"))
+    architecture_timeout_s: int = int(os.getenv("ARCHITECTURE_TIMEOUT_S", "600"))
+    code_timeout_s: int = int(os.getenv("CODE_TIMEOUT_S", "900"))
+    review_timeout_s: int = int(os.getenv("REVIEW_TIMEOUT_S", "300"))
+    review_max_retries: int = int(os.getenv("REVIEW_MAX_RETRIES", "3"))
+
     stream_name: str = os.getenv("STREAM_NAME", "audit:events")
     dlq_stream: str = os.getenv("DLQ_STREAM", "audit:dlq")
 
