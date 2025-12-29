@@ -3,6 +3,7 @@
 This package includes:
 - **EPIC 1**: strict JSON contracts (EventEnvelope + payload schemas) and a generic validator consumer.
 - **EPIC 2**: Orchestrator (state machine, backlog generation, dispatch, DoD enforcement).
+- **EPIC 5**: AI agent teams design for audit operations (see `docs/EPIC5_AI_AGENT_TEAMS.md`).
 
 ## Quickstart (runtime stack)
 
