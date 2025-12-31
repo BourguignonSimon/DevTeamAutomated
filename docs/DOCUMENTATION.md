@@ -12,6 +12,7 @@ This document provides an end-to-end view of the Audit Flash codebase, spanning 
 repo root
 ├── README.md                 # Quickstart and runtime overview
 ├── core/                     # Domain and infrastructure primitives
+│   ├── agent_workers.py      # Shared compute helpers used by EPIC5 worker agents
 │   ├── backlog_store.py      # Redis-backed backlog persistence helpers
 │   ├── config.py             # Centralized runtime settings
 │   ├── dlq.py                # Dead-letter publishing helpers
@@ -30,8 +31,13 @@ repo root
 │   │   └── main.py
 │   ├── worker/               # Processes dispatched backlog items
 │   │   └── main.py
-│   └── stream_consumer/      # Minimal validation-only consumer
-│       └── main.py
+│   ├── stream_consumer/      # Minimal validation-only consumer
+│   │   └── main.py
+│   ├── time_waste_worker/    # EPIC5 worker emitting time-waste analysis deliverables
+│   ├── cost_worker/          # EPIC5 worker estimating hourly/monthly/annual costs
+│   ├── friction_worker/      # EPIC5 worker detecting recurring tasks/friction
+│   └── scenario_worker/      # EPIC5 worker projecting avoidable savings scenarios
+├── demo/                     # Interactive helpers for seeding projects and answers
 ├── agent_manager.py          # Phase/timeout orchestrator for agent workflows
 ├── schemas/                  # JSON schema contracts for envelopes, events, and objects
 └── tests/                    # Regression coverage and integration smoke tests
@@ -121,6 +127,14 @@ repo root
 - `is_allowed`: Check if a transition is permitted.
 - `assert_transition`: Raise on illegal transitions; return result on success.
 
+### `core.agent_workers`
+- `normalize_text`: Lowercase, strip punctuation, and collapse whitespace to fingerprint task text.
+- `compute_time_metrics`: Sum estimated minutes/hours and return per-category breakdown and shares.
+- `compute_confidence`: Heuristic score incorporating hourly rate presence, row count, category diversity, and missing estimates.
+- `compute_costs`: Convert total hours and hourly rate into monthly/annual costs.
+- `compute_friction`: Detect recurring work by text fingerprint; returns cluster breakdown and avoidable percent estimate.
+- `compute_scenario`: Combine friction and cost metrics into a recovered-hours savings projection.
+
 ### `services.orchestrator.main`
 - `envelope`: Service-local envelope constructor mirroring test style.
 - `_backlog_template`: Deterministic backlog seed for new projects.
@@ -141,6 +155,34 @@ repo root
 - `_process_message`: Stream handler for dispatched work with DLQ on errors.
 - `main`: Worker entry point for consuming dispatches.
 
+### `services.time_waste_worker.main`
+- `_emit_started`: Emit `WORK.ITEM_STARTED` for matching dispatches.
+- `_emit_deliverable`: Publish `DELIVERABLE.PUBLISHED` with total minutes/hours breakdown and mark completion.
+- `_emit_clarification`: Request missing `work_context.rows` inputs via `CLARIFICATION.NEEDED`.
+- `_process_message`: Validate envelope/payload, enforce idempotence, route only `AGENT_TASK` dispatches targeting this agent, and drive started/deliverable events or clarification.
+- `main`: Consume stream events with group/consumer settings and delegate to `_process_message`.
+
+### `services.cost_worker.main`
+- `_emit_started`: Emit `WORK.ITEM_STARTED` upon valid dispatch.
+- `_emit_clarification`: Request missing `hourly_rate`/`rows` inputs.
+- `_emit_results`: Produce cost analysis deliverable and completion evidence derived from time metrics and hourly rate.
+- `_process_message`: Validate dispatch, gate on agent target, enforce idempotence, branch to clarification or result emission.
+- `main`: Wire Redis consumption loop for the cost worker agent.
+
+### `services.friction_worker.main`
+- `_emit_started`: Emit started event for this agent.
+- `_emit_results`: Compute friction clusters/avoidable work and publish deliverable plus completion evidence.
+- `_emit_clarification`: Request `rows` when absent.
+- `_process_message`: Validate dispatch, confirm agent target, enforce idempotence, and either clarify or emit started/results.
+- `main`: Run stream consumption loop for friction analysis agent.
+
+### `services.scenario_worker.main`
+- `_emit_started`: Emit started event for dispatched tasks.
+- `_emit_clarification`: Request missing `hourly_rate` or `rows` inputs.
+- `_emit_results`: Combine time, friction, and cost metrics into a savings scenario deliverable and completion evidence.
+- `_process_message`: Validate dispatch, confirm agent target, enforce idempotence, and branch between clarification and result publication.
+- `main`: Stream loop wiring for the scenario agent.
+
 ### `agent_manager`
 - **Phase**: Enum of agent workflow phases (analyse, architecture, code, review).
 - **PhaseState**: Dataclass capturing phase progress metadata.
@@ -149,6 +191,11 @@ repo root
 - **AgentManager**: Executes phase handlers with timeouts, persistence, retry, and incident hooks.
   - `_timeout_for_phase`, `_execute_with_timeout`, `_persist_phase`, `_handle_failure`, `_run_phase`, `_run_review_with_retry`: Internal helpers.
   - `run_workflow`: Execute ordered phases with timeout enforcement and retry behavior.
+
+### `demo` helpers
+- `interactive_demo`: CLI menu for seeding intake events, dispatching manual work, simulating worker outputs, and inspecting DLQ/backlog keys.
+- `seed_events`: One-shot script to seed a `PROJECT.INITIAL_REQUEST_RECEIVED` event for demos.
+- `clarification_demo`: Interactive prompt to fetch open questions from Redis and emit `USER.ANSWER_SUBMITTED` events.
 
 ## 3. Detailed module reference
 
@@ -263,6 +310,16 @@ Defines allowed backlog status transitions and enforcement helpers.
 - `is_allowed(from_status, to_status) -> bool`: Membership check in `_ALLOWED`.
 - `assert_transition(from_status, to_status) -> TransitionResult`: Returns success result for valid transitions; raises `ValueError` with descriptive message otherwise.
 
+### `core.agent_workers`
+Shared computation helpers leveraged by the EPIC5 worker agents.
+
+- `normalize_text(text) -> str`: Lowercase, strip punctuation, condense whitespace, and trim for clustering/fingerprinting.
+- `compute_time_metrics(work_context) -> (float, float, List[dict])`: Aggregate estimated minutes from `work_context.rows`, compute hours and per-category shares/breakdown.
+- `compute_confidence(work_context) -> float`: Score starting at 0.6 then adjust for hourly rate presence, number of rows, category diversity, and missing estimates; clamps to [0,1].
+- `compute_costs(total_hours, work_context) -> dict`: Multiply hours by `hourly_rate` and project monthly/annual cost (annual assumes monthly type or defaults to x12).
+- `compute_friction(work_context) -> dict`: Cluster rows by normalized text fingerprint to find recurring tasks, derive recurring share and avoidable percentage, and list clusters with counts and sample text.
+- `compute_scenario(total_hours, costs, friction) -> dict`: Use friction avoidable percent to compute recovered hours and monetary savings plus a summary string.
+
 ### `services.orchestrator.main`
 Consumes inbound events, seeds backlogs, handles clarifications, and dispatches READY work.
 
@@ -289,6 +346,34 @@ Processes dispatched work items by emitting started/completed events and updatin
 - `_process_message(r, reg, settings, store, msg_id, fields) -> None`: Stream handler that validates envelope, filters for `WORK.ITEM_DISPATCHED`, delegates to `_handle_dispatch`, and DLQs on parsing/validation failures.
 - `main() -> None`: Initializes settings, logging, registry, Redis client, and backlog store; ensures consumer group; loops over `read_group`, processing each message.
 
+### `services.time_waste_worker.main`
+Agent that turns `WORK.ITEM_DISPATCHED` tasks targeted to `time_waste_worker` into time waste analysis deliverables.
+
+- Validates envelope/payload and ignores other event types or agent targets; enforces idempotence using `event_id` + group key.
+- `_emit_clarification` sends `CLARIFICATION.NEEDED` when `work_context.rows` is absent/empty, listing missing fields.
+- On valid context, emits `WORK.ITEM_STARTED`, then `_emit_deliverable` publishes `DELIVERABLE.PUBLISHED` summarizing total minutes/hours and breakdown plus `WORK.ITEM_COMPLETED` evidence keyed by totals.
+
+### `services.cost_worker.main`
+Agent that estimates cost impact from dispatched agent tasks.
+
+- Validates envelope/payload and agent target; deduplicates with idempotence key.
+- If `hourly_rate` or `rows` missing, emits `CLARIFICATION.NEEDED` enumerating missing fields.
+- Otherwise emits started event and publishes deliverable with total hours, hourly rate, and monthly/annual costs, followed by completion evidence capturing the computed costs.
+
+### `services.friction_worker.main`
+Agent that detects recurring work to quantify friction.
+
+- Validates dispatches targeted to `friction_worker` and uses idempotence guard.
+- Requests clarification when no `rows` are supplied.
+- Emits started event, computes friction metrics (recurring share, avoidable percent, clusters) and total hours, publishes deliverable, and records completion evidence with friction stats.
+
+### `services.scenario_worker.main`
+Agent that projects savings scenarios based on friction and cost.
+
+- Validates dispatches for `scenario_worker`, enforcing idempotence.
+- Emits clarification if either `hourly_rate` or `rows` are missing.
+- When context is sufficient, emits started event then combines time, friction, and cost computations into a `with_agent_scenario` deliverable and completion evidence highlighting recovered hours and monetary savings.
+
 ### `agent_manager`
 Coordinates multi-phase agent workflows with persistence, timeout enforcement, and incident handling hooks.
 
@@ -306,4 +391,11 @@ Coordinates multi-phase agent workflows with persistence, timeout enforcement, a
   - `_run_phase(phase, func, message_id) -> bool`: Persist, execute with timeout, and handle failures.
   - `_run_review_with_retry(func, message_id) -> bool`: Retry review phase up to configured attempts before incident handling.
   - `run_workflow(message_id, phases: Dict[Phase, Callable[[], None]]) -> bool`: Execute handlers in order (ANALYZE → ARCHITECTURE → CODE → REVIEW with retry) stopping on failure; clears journal on full success.
+
+### `demo` helpers
+Interactive scripts for manual testing and demonstrations using the same stream contracts.
+
+- **interactive_demo.py**: Provides menu-driven actions to send intake events, dispatch requests, simulate worker started/completed events (with or without evidence), inject invalid envelopes, view DLQ entries, and list backlog keys.
+- **seed_events.py**: Seeds a single `PROJECT.INITIAL_REQUEST_RECEIVED` envelope with sample payload for quick bootstrapping.
+- **clarification_demo.py**: Lists open questions for a project via `QuestionStore`, prompts for an answer, and emits `USER.ANSWER_SUBMITTED` events.
 
