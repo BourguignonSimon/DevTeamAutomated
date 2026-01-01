@@ -16,6 +16,14 @@ class InMemoryRedis:
         self.groups = {}
         self.kv = {}
         self.sets = {}
+        self.ttl = {}
+
+    def _cleanup_expired(self, name):
+        expire_at = self.ttl.get(name)
+        if expire_at is not None and time.time() > expire_at:
+            self.kv.pop(name, None)
+            self.sets.pop(name, None)
+            self.ttl.pop(name, None)
 
     # basic keys
     def delete(self, *names):
@@ -24,18 +32,39 @@ class InMemoryRedis:
             self.sets.pop(name, None)
             self.streams.pop(name, None)
             self.groups.pop(name, None)
+            self.ttl.pop(name, None)
 
     def exists(self, name):
+        self._cleanup_expired(name)
         return 1 if name in self.kv else 0
 
-    def set(self, name, value, nx: bool = False, ex: int | None = None):  # ex unused
+    def set(self, name, value, nx: bool = False, ex: int | None = None, px: int | None = None):
+        self._cleanup_expired(name)
         if nx and name in self.kv:
             return False
         self.kv[name] = value
+        ttl = None
+        if px is not None:
+            ttl = px / 1000.0
+        elif ex is not None:
+            ttl = ex
+        if ttl is not None:
+            self.ttl[name] = time.time() + ttl
         return True
 
-    def expire(self, name, ttl):  # pragma: no cover - TTL not simulated
-        return True
+    def expire(self, name, ttl):  # pragma: no cover
+        if name in self.kv:
+            self.ttl[name] = time.time() + ttl
+            return True
+        return False
+
+    def pttl(self, name):
+        self._cleanup_expired(name)
+        expire_at = self.ttl.get(name)
+        if expire_at is None:
+            return -1
+        remaining = int((expire_at - time.time()) * 1000)
+        return remaining if remaining > 0 else -2
 
     def hincrby(self, name, key, amount):
         h = self.kv.setdefault(name, {})
@@ -45,6 +74,7 @@ class InMemoryRedis:
         return h[key]
 
     def hset(self, name, key=None, value=None, mapping=None):
+        self._cleanup_expired(name)
         h = self.kv.setdefault(name, {})
         if mapping:
             h.update(mapping)
@@ -55,12 +85,14 @@ class InMemoryRedis:
         return 1
 
     def hgetall(self, name):
+        self._cleanup_expired(name)
         h = self.kv.get(name, {})
         if not isinstance(h, dict):
             return {}
         return dict(h)
 
     def get(self, name):
+        self._cleanup_expired(name)
         return self.kv.get(name)
 
     # set helpers
@@ -334,6 +366,19 @@ class InMemoryRedis:
                     break
         next_start = "0-0"
         return next_start, reclaimed, []
+
+    def eval(self, script, numkeys, *keys_and_args):
+        if numkeys != 1:
+            raise NotImplementedError
+        key = keys_and_args[0]
+        token = keys_and_args[1] if len(keys_and_args) > 1 else None
+        self._cleanup_expired(key)
+        current = self.kv.get(key)
+        if current == token:
+            self.kv.pop(key, None)
+            self.ttl.pop(key, None)
+            return 1
+        return 0
 
 
 @pytest.fixture(scope="function")

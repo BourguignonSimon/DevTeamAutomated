@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import logging
 import time
-from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -12,6 +11,7 @@ from typing import Callable, Dict, Optional, Tuple
 import redis
 
 from core.config import Settings
+from core.phase_runner import run_with_timeout
 
 log = logging.getLogger("agent_manager")
 
@@ -124,7 +124,6 @@ class AgentManager:
         self.settings = settings
         self.republish_handler = republish_handler
         self.incident_handler = incident_handler
-        self.executor = ThreadPoolExecutor(max_workers=1)
         self.journal = journal or StateJournal(redis_client=redis_client)
 
     def _timeout_for_phase(self, phase: Phase) -> int:
@@ -137,15 +136,8 @@ class AgentManager:
         return mapping[phase]
 
     def _execute_with_timeout(self, func: Callable[[], None], timeout_s: int) -> Tuple[bool, Optional[str]]:
-        future = self.executor.submit(func)
-        try:
-            future.result(timeout=timeout_s)
-            return True, None
-        except TimeoutError:
-            future.cancel()
-            return False, "timeout"
-        except Exception as exc:
-            return False, str(exc)
+        ok, reason = run_with_timeout(func, timeout_s)
+        return ok, reason
 
     def _persist_phase(self, phase: Phase, message_id: str) -> None:
         self.journal.record(PhaseState(phase=phase, message_id=message_id, timestamp=time.time()))

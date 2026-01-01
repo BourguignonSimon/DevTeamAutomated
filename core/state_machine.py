@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Set
+
+log = logging.getLogger(__name__)
 
 
 class BacklogStatus(str, Enum):
@@ -32,12 +35,35 @@ class TransitionResult:
     reason: str | None = None
 
 
+@dataclass(frozen=True)
+class IllegalTransition(Exception):
+    item_id: str | None
+    from_state: BacklogStatus
+    to_state: BacklogStatus
+    allowed_transitions: Set[BacklogStatus]
+
+
 def is_allowed(from_status: BacklogStatus, to_status: BacklogStatus) -> bool:
     return to_status in _ALLOWED.get(from_status, set())
 
 
-def assert_transition(from_status: BacklogStatus, to_status: BacklogStatus) -> TransitionResult:
+def assert_transition(
+    from_status: BacklogStatus,
+    to_status: BacklogStatus,
+    *,
+    item_id: str | None = None,
+) -> TransitionResult:
     if is_allowed(from_status, to_status):
         return TransitionResult(True, from_status, to_status, None)
     res = TransitionResult(False, from_status, to_status, f"Illegal transition {from_status} -> {to_status}")
-    raise ValueError(res.reason)
+    exc = IllegalTransition(item_id=item_id, from_state=from_status, to_state=to_status, allowed_transitions=_ALLOWED.get(from_status, set()))
+    log.error(
+        "Illegal transition",
+        extra={
+            "item_id": item_id,
+            "from_state": from_status.value,
+            "to_state": to_status.value,
+            "allowed": [s.value for s in _ALLOWED.get(from_status, set())],
+        },
+    )
+    raise exc

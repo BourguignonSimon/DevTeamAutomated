@@ -1,7 +1,17 @@
 from __future__ import annotations
 
+import logging
 import time
+
 import redis
+
+log = logging.getLogger(__name__)
+
+_DEFAULT_PREFIX = "audit:processed"
+
+
+def _key(prefix: str, consumer_group: str, event_id: str) -> str:
+    return f"{prefix}:{consumer_group}:{event_id}"
 
 
 _DEFAULT_PREFIX = "audit:processed"
@@ -18,6 +28,7 @@ def mark_if_new(
     consumer_group: str = "default",
     ttl_s: int = 7 * 24 * 3600,
     prefix: str = _DEFAULT_PREFIX,
+    correlation_id: str | None = None,
 ) -> bool:
     """Return True if event_id was NOT seen before and is now marked as processed.
 
@@ -25,6 +36,15 @@ def mark_if_new(
     """
     key = _key(prefix, consumer_group, event_id)
     res = r.set(name=key, value=str(int(time.time())), nx=True, ex=ttl_s)
+    if not res:
+        log.info(
+            "Idempotence reject",
+            extra={
+                "event_id": event_id,
+                "consumer_group": consumer_group,
+                "correlation_id": correlation_id,
+            },
+        )
     return bool(res)
 
 

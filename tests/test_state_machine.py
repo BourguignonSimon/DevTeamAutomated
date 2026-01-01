@@ -1,10 +1,10 @@
 import pytest
 
-from core.state_machine import BacklogStatus, assert_transition
+from core.state_machine import BacklogStatus, IllegalTransition, assert_transition
 
 
 def test_illegal_transition_fails():
-    with pytest.raises(ValueError):
+    with pytest.raises(IllegalTransition):
         assert_transition(BacklogStatus.READY, BacklogStatus.DONE)
 
 
@@ -14,5 +14,5 @@ def test_legal_transition_ok():
 
 
 def test_in_progress_cannot_jump_backwards():
-    with pytest.raises(ValueError):
+    with pytest.raises(IllegalTransition):
         assert_transition(BacklogStatus.IN_PROGRESS, BacklogStatus.READY)
