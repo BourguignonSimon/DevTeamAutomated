@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/order.validation_required.v1.schema.json",
+  "title": "ORDER.VALIDATION_REQUIRED payload v1",
+  "x_event_type": "ORDER.VALIDATION_REQUIRED",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["order_id", "reason"],
+  "properties": {
+    "order_id": {"type": "string", "format": "uuid"},
+    "reason": {"type": "string", "enum": ["missing_fields", "anomalies", "manual_review"]}
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/order.inbox_received.v1.schema.json",
+  "title": "ORDER.INBOX_RECEIVED payload v1",
+  "x_event_type": "ORDER.INBOX_RECEIVED",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["order_id", "from_email", "subject", "received_at", "attachments"],
+  "properties": {
+    "order_id": {"type": "string", "format": "uuid"},
+    "from_email": {"type": "string", "format": "email"},
+    "subject": {"type": "string"},
+    "received_at": {"type": "string", "format": "date-time"},
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact_id", "filename", "mime_type"],
+        "properties": {
+          "artifact_id": {"type": "string", "format": "uuid"},
+          "filename": {"type": "string"},
+          "mime_type": {"type": "string"}
+        }
+      }
+    },
+    "customer_hint": {"type": ["string", "null"]},
+    "delivery_address": {"type": ["string", "null"]},
+    "delivery_date": {"type": ["string", "null"], "format": "date"}
+  }
+}

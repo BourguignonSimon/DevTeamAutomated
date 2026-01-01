@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/order.export_ready.v1.schema.json",
+  "title": "ORDER.EXPORT_READY payload v1",
+  "x_event_type": "ORDER.EXPORT_READY",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["order_id", "export", "email_draft"],
+  "properties": {
+    "order_id": {"type": "string", "format": "uuid"},
+    "export": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "format"],
+      "properties": {
+        "artifact_id": {"type": "string", "format": "uuid"},
+        "format": {"type": "string", "const": "csv"}
+      }
+    },
+    "email_draft": {"$ref": "../objects/email_draft.v1.schema.json"}
+  }
+}

@@ -92,6 +92,41 @@ PY
 - Recent deliverables: `redis-cli -p 6380 XRANGE audit:events - + COUNT 20 | grep DELIVERABLE`.
 - DLQ entries: `redis-cli -p 6380 XRANGE audit:dlq - + COUNT 5`.
 
+### Order intake demo (RUN mode)
+
+Run Docker Compose and use the order intake gateway (FastAPI-compatible stub) exposed on port 8080:
+
+```bash
+docker compose up --build order_intake_agent redis
+```
+
+Submit an email-style order with attachments:
+
+```bash
+curl -X POST http://localhost:8080/orders/inbox \
+  -F from_email='user@example.com' \
+  -F subject='New order' \
+  -F delivery_address='123 Example St' \
+  -F delivery_date='2024-01-02' \
+  -F files=@./sample_order.xlsx
+```
+
+List pending validations (orders that raised missing fields or anomalies):
+
+```bash
+curl http://localhost:8080/orders/pending-validation
+```
+
+Submit corrections/validation:
+
+```bash
+curl -X POST http://localhost:8080/orders/<order_id>/validate \
+  -H 'Content-Type: application/json' \
+  -d '{"delivery": {"address": "123 Example St", "date": "2024-01-02"}}'
+```
+
+Artifacts (uploaded attachments and generated CSV exports) are stored under `./storage` and indexed in Redis with a TTL.
+
 ### Resetting consumer groups
 
 To delete and recreate a consumer group during local testing:
