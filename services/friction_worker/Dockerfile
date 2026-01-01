@@ -5,6 +5,6 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 COPY core ./core
 COPY schemas ./schemas
-COPY services/$svc ./services/$svc
+COPY services/friction_worker ./services/friction_worker
 ENV PYTHONPATH=/app
-CMD ["python", "-m", "services.$svc.main"]
+CMD ["python", "-m", "services.friction_worker.main"]

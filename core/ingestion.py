@@ -61,6 +61,8 @@ def _clean_text(value: object) -> str:
 
 _CATEGORY_KEYWORDS: Mapping[str, str] = {
     "security": "security",
+    "sécurité": "security",
+    "securite": "security",
     "fraud": "risk",
     "finance": "finance",
     "report": "reporting",
