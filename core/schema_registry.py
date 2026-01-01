@@ -43,6 +43,7 @@ def _resolve_base_dir(base_dir: str) -> str:
 class SchemaRegistry:
     envelope: Dict[str, Any]
     objects: Dict[str, Dict[str, Any]]
+    objects_by_id: Dict[str, Dict[str, Any]]
     payloads: Dict[str, Dict[str, Any]]  # event_type -> schema
 
 
@@ -51,11 +52,15 @@ def load_registry(base_dir: str) -> SchemaRegistry:
     envelope = _load_json(os.path.join(base_dir, "envelope", "event_envelope.v1.schema.json"))
 
     objects: Dict[str, Dict[str, Any]] = {}
+    objects_by_id: Dict[str, Dict[str, Any]] = {}
     obj_dir = os.path.join(base_dir, "objects")
     if os.path.exists(obj_dir):
         for name in os.listdir(obj_dir):
             if name.endswith(".json"):
-                objects[name] = _load_json(os.path.join(obj_dir, name))
+                schema = _load_json(os.path.join(obj_dir, name))
+                objects[name] = schema
+                if "$id" in schema:
+                    objects_by_id[schema["$id"]] = schema
 
     payloads: Dict[str, Dict[str, Any]] = {}
     ev_dir = os.path.join(base_dir, "events")
@@ -70,4 +75,4 @@ def load_registry(base_dir: str) -> SchemaRegistry:
             raise ValueError(f"duplicate schema for event_type={event_type}")
         payloads[event_type] = sch
 
-    return SchemaRegistry(envelope=envelope, objects=objects, payloads=payloads)
+    return SchemaRegistry(envelope=envelope, objects=objects, objects_by_id=objects_by_id, payloads=payloads)

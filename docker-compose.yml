@@ -118,6 +118,26 @@ services:
       redis:
         condition: service_healthy
 
+  order_intake_agent:
+    build:
+      context: .
+      dockerfile: services/order_intake_agent/Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: order_intake
+      CONSUMER_NAME: order-intake-1
+      STORAGE_DIR: /storage
+    volumes:
+      - ./storage:/storage
+    ports:
+      - "8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+
   tests:
     build:
       context: .

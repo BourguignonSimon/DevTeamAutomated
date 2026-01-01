@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/objects/email_draft.v1.schema.json",
+  "title": "EmailDraft object v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["to", "subject", "body_text"],
+  "properties": {
+    "to": {"type": "string", "format": "email"},
+    "subject": {"type": "string"},
+    "body_text": {"type": "string"}
+  }
+}

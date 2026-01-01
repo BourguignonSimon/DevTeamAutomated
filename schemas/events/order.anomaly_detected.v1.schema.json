@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/order.anomaly_detected.v1.schema.json",
+  "title": "ORDER.ANOMALY_DETECTED payload v1",
+  "x_event_type": "ORDER.ANOMALY_DETECTED",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["order_id", "anomalies"],
+  "properties": {
+    "order_id": {"type": "string", "format": "uuid"},
+    "anomalies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "severity", "description"],
+        "properties": {
+          "type": {"type": "string"},
+          "severity": {"type": "string"},
+          "description": {"type": "string"},
+          "line_ref": {"type": ["integer", "null"]}
+        }
+      }
+    }
+  }
+}
