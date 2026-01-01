@@ -5,7 +5,7 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 COPY core ./core
 COPY schemas ./schemas
-COPY services/orchestrator ./services/orchestrator
+COPY services ./services
 COPY demo ./demo
 COPY pytest.ini ./
 COPY tests ./tests
