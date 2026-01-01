@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import logging
+import time
 from typing import Dict, List, Tuple, Optional
+
 import redis
+
+log = logging.getLogger(__name__)
 
 
 def build_redis_client(host: str, port: int, db: int = 0) -> redis.Redis:
@@ -58,6 +63,11 @@ def read_group(
             return []
         return [(mid, fields) for mid, fields in claimed]
     except Exception:
+        log.exception(
+            "Failed to reclaim pending messages",
+            extra={"stream": stream, "group": group, "consumer": consumer},
+        )
+        time.sleep(0.1)
         return []
 
 

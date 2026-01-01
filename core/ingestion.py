@@ -171,7 +171,15 @@ def load_excel(path: Path, sheet_name: Optional[str] = None) -> List[MutableMapp
     wb = load_workbook(filename=path, read_only=True, data_only=True)
     ws = wb[sheet_name] if sheet_name else wb.active
     rows: List[MutableMapping[str, object]] = []
-    header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
+    header_iter = ws.iter_rows(min_row=1, max_row=1, values_only=True)
+    try:
+        header_row = next(header_iter)
+    except StopIteration:
+        raise ValueError("Excel sheet is empty (missing header row)")
+
+    if all(h is None or str(h).strip() == "" for h in header_row):
+        raise ValueError("Excel sheet is empty (missing header row)")
+
     headers = [str(h) if h is not None else "" for h in header_row]
     for values in ws.iter_rows(min_row=2, values_only=True):
         row: Dict[str, object] = {}
