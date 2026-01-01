@@ -25,11 +25,40 @@ class InMemoryRedis:
             self.streams.pop(name, None)
             self.groups.pop(name, None)
 
+    def exists(self, name):
+        return 1 if name in self.kv else 0
+
     def set(self, name, value, nx: bool = False, ex: int | None = None):  # ex unused
         if nx and name in self.kv:
             return False
         self.kv[name] = value
         return True
+
+    def expire(self, name, ttl):  # pragma: no cover - TTL not simulated
+        return True
+
+    def hincrby(self, name, key, amount):
+        h = self.kv.setdefault(name, {})
+        if not isinstance(h, dict):
+            raise ValueError("key not hash")
+        h[key] = int(h.get(key, 0)) + amount
+        return h[key]
+
+    def hset(self, name, key=None, value=None, mapping=None):
+        h = self.kv.setdefault(name, {})
+        if mapping:
+            h.update(mapping)
+            return len(mapping)
+        if key is None:
+            return 0
+        h[key] = value
+        return 1
+
+    def hgetall(self, name):
+        h = self.kv.get(name, {})
+        if not isinstance(h, dict):
+            return {}
+        return dict(h)
 
     def get(self, name):
         return self.kv.get(name)

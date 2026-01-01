@@ -33,6 +33,18 @@ print("seeded", env["event_id"])
 PY
 ```
 
+Alternatively, you can drive the same flow over HTTP for quick demos:
+
+```bash
+# in one terminal
+python -m demo.http_gateway
+
+# in another terminal
+curl -X POST http://localhost:8080/initial-request \
+  -H 'Content-Type: application/json' \
+  -d '{"request_text": "full audit via curl"}'
+```
+
 ### What to observe
 
 1. Orchestrator generates a backlog and dispatches `WORK.ITEM_DISPATCHED`.
@@ -93,6 +105,12 @@ redis-cli -p 6380 XGROUP CREATE audit:events time_waste_workers 0-0 MKSTREAM
 
 ```bash
 make test
+```
+
+Reliability of the Redis Streams runtime (schema validation, retries, DLQ, and idempotence) is covered by dedicated unit tests:
+
+```bash
+pytest -q tests/test_reliable_runtime.py
 ```
 
 Integration tests that exercise the real Compose stack are tagged `integration` and will be skipped automatically unless Docker is available.
