@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from jsonschema import Draft202012Validator, FormatChecker, RefResolver
+from jsonschema import Draft202012Validator, FormatChecker
+from referencing import Registry, Resource
 
 from core.schema_registry import SchemaRegistry
 
@@ -14,10 +15,18 @@ class ValidationResult:
     error: Optional[str] = None
     schema_id: Optional[str] = None
 
+def _build_registry(store: dict | None) -> Registry | None:
+    if not store:
+        return None
+    registry: Registry = Registry()
+    for uri, contents in store.items():
+        registry = registry.with_resource(uri, Resource.from_contents(contents))
+    return registry
+
 
 def _validate(schema: dict, instance: Any, *, store: dict | None = None) -> ValidationResult:
-    resolver = RefResolver.from_schema(schema, store=store) if store else None
-    v = Draft202012Validator(schema, format_checker=FormatChecker(), resolver=resolver)
+    registry = _build_registry(store)
+    v = Draft202012Validator(schema, format_checker=FormatChecker(), registry=registry)
     errors = sorted(v.iter_errors(instance), key=lambda e: e.path)
     if errors:
         e = errors[0]
