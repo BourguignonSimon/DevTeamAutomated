@@ -7,6 +7,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, List
 
+import httpx
 import redis
 
 from core.event_utils import envelope, now_iso
@@ -81,7 +82,47 @@ class OrderIntakeAgent:
             subject = "Order received"
         return {"to": from_email, "subject": subject, "body_text": body}
 
-    def _persist_and_emit(self, env: Dict[str, Any], order_draft: Dict[str, Any], missing_fields: List[Dict[str, Any]], anomalies: List[Dict[str, Any]]):
+    def _call_gateway(self, env: Dict[str, Any], parsed: Dict[str, Any]) -> Dict[str, Any] | None:
+        url = f"{self.settings.llm_gateway_url.rstrip('/')}/v1/extract/order"
+        payload = {
+            "request_id": str(uuid.uuid4()),
+            "correlation_id": env.get("correlation_id") or str(uuid.uuid4()),
+            "provider_preference": list(self.settings.llm_provider_order),
+            "input": {
+                "extracted_text": None,
+                "extracted_table": parsed.get("lines"),
+                "hints": {
+                    "order_id": env["payload"].get("order_id"),
+                    "customer_hint": env["payload"].get("customer_hint"),
+                    "from_email": env["payload"].get("from_email"),
+                    "delivery_address": env["payload"].get("delivery_address"),
+                    "delivery_date": env["payload"].get("delivery_date"),
+                    "currency": "EUR",
+                },
+            },
+            "output_schema_name": "order_extraction_result.v1.schema.json",
+            "strict": True,
+        }
+        try:
+            resp = httpx.post(url, json=payload, timeout=self.settings.llm_timeout_s)
+            resp.raise_for_status()
+            data = resp.json()
+            if not data.get("ok"):
+                log.warning("gateway returned not ok for %s: %s", env.get("correlation_id"), data)
+                return None
+            return data.get("result_json")
+        except Exception as exc:
+            log.exception("gateway call failed correlation_id=%s", env.get("correlation_id"))
+            return None
+
+    def _persist_and_emit(
+        self,
+        env: Dict[str, Any],
+        order_draft: Dict[str, Any],
+        missing_fields: List[Dict[str, Any]],
+        anomalies: List[Dict[str, Any]],
+        validation_reason: str,
+    ) -> None:
         order_id = order_draft["order_id"]
         self.store.save_order_draft(order_id, order_draft)
         self.store.save_missing_fields(order_id, missing_fields)
@@ -106,48 +147,6 @@ class OrderIntakeAgent:
                 causation_id=env.get("event_id"),
             )
             self.r.xadd(self.settings.stream_name, {"event": json.dumps(missing_env)})
-            validation_env = envelope(
-                event_type="ORDER.VALIDATION_REQUIRED",
-                payload={"order_id": order_id, "reason": "missing_fields"},
-                source=self.settings.service_name,
-                correlation_id=env.get("correlation_id"),
-                causation_id=env.get("event_id"),
-            )
-            self.store.add_pending_validation(self.settings.validation_set_key, order_id)
-            self.r.xadd(self.settings.stream_name, {"event": json.dumps(validation_env)})
-            question_id = str(uuid.uuid4())
-            question_env = envelope(
-                event_type="QUESTION.CREATED",
-                payload={
-                    "question": {
-                        "id": question_id,
-                        "project_id": order_id,
-                        "backlog_item_id": order_id,
-                        "question_text": "Provide missing order details",
-                        "answer_type": "text",
-                        "status": "OPEN",
-                        "correlation_id": env.get("correlation_id"),
-                    }
-                },
-                source=self.settings.service_name,
-                correlation_id=env.get("correlation_id"),
-                causation_id=env.get("event_id"),
-            )
-            self.r.xadd(self.settings.stream_name, {"event": json.dumps(question_env)})
-            clarification_env = envelope(
-                event_type="CLARIFICATION.NEEDED",
-                payload={
-                    "project_id": order_id,
-                    "backlog_item_id": order_id,
-                    "reason": "order_missing_fields",
-                    "missing_fields": [m["field"] for m in missing_fields],
-                    "agent": self.settings.service_name,
-                },
-                source=self.settings.service_name,
-                correlation_id=env.get("correlation_id"),
-                causation_id=env.get("event_id"),
-            )
-            self.r.xadd(self.settings.stream_name, {"event": json.dumps(clarification_env)})
         if anomalies:
             anomaly_env = envelope(
                 event_type="ORDER.ANOMALY_DETECTED",
@@ -157,18 +156,16 @@ class OrderIntakeAgent:
                 causation_id=env.get("event_id"),
             )
             self.r.xadd(self.settings.stream_name, {"event": json.dumps(anomaly_env)})
-            validation_env = envelope(
-                event_type="ORDER.VALIDATION_REQUIRED",
-                payload={"order_id": order_id, "reason": "anomalies"},
-                source=self.settings.service_name,
-                correlation_id=env.get("correlation_id"),
-                causation_id=env.get("event_id"),
-            )
-            self.store.add_pending_validation(self.settings.validation_set_key, order_id)
-            self.r.xadd(self.settings.stream_name, {"event": json.dumps(validation_env)})
 
-        if not missing_fields and not anomalies:
-            self._export_and_publish(order_id, order_draft, email_draft, env)
+        validation_env = envelope(
+            event_type="ORDER.VALIDATION_REQUIRED",
+            payload={"order_id": order_id, "reason": validation_reason},
+            source=self.settings.service_name,
+            correlation_id=env.get("correlation_id"),
+            causation_id=env.get("event_id"),
+        )
+        self.store.add_pending_validation(self.settings.validation_set_key, order_id)
+        self.r.xadd(self.settings.stream_name, {"event": json.dumps(validation_env)})
 
     def _handle_inbox(self, env: Dict[str, Any]) -> None:
         payload = env["payload"]
@@ -187,7 +184,7 @@ class OrderIntakeAgent:
             "date": payload.get("delivery_date"),
             "incoterm": None,
         }
-        order_draft = {
+        base_draft = {
             "order_id": order_id,
             "po_number": None,
             "customer": {"name": payload.get("customer_hint"), "vat": None, "address": None, "email": payload.get("from_email")},
@@ -205,7 +202,31 @@ class OrderIntakeAgent:
 
         anomalies = parsed["anomalies"]
 
-        self._persist_and_emit(env, order_draft, missing_fields, anomalies)
+        gateway_result = self._call_gateway(env, parsed)
+        if gateway_result:
+            order_draft = gateway_result.get("order_draft") or base_draft
+            order_draft["order_id"] = order_id
+            customer = order_draft.get("customer", {})
+            if not customer.get("name"):
+                customer["name"] = payload.get("customer_hint") or None
+            if not customer.get("email"):
+                customer["email"] = payload.get("from_email")
+            order_draft["customer"] = customer
+            missing_fields = gateway_result.get("missing_fields", []) or missing_fields
+            anomalies = gateway_result.get("anomalies", []) or anomalies
+        else:
+            order_draft = base_draft
+            missing_fields.append({"field": "gateway", "reason": "gateway_unavailable"})
+
+        reason = "awaiting_approval"
+        if missing_fields:
+            reason = "missing_fields"
+        elif anomalies:
+            reason = "anomalies"
+        if not gateway_result:
+            reason = "gateway_unavailable"
+
+        self._persist_and_emit(env, order_draft, missing_fields, anomalies, reason)
 
     def _export_and_publish(self, order_id: str, order_draft: Dict[str, Any], email_draft: Dict[str, str], env: Dict[str, Any]) -> None:
         lock = acquire_lock(self.r, f"order:{order_id}:export", ttl_ms=self.settings.export_lock_ttl_ms)

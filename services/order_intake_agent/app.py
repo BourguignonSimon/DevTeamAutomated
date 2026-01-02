@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict
 
@@ -58,7 +58,7 @@ def create_app(deps: Dependencies | None = None) -> FastAPI:
         files: list[UploadFile] = File(...),
     ) -> JSONResponse:
         order_id = str(uuid.uuid4())
-        received_at = datetime.utcnow().isoformat() + "Z"
+        received_at = datetime.now(timezone.utc).isoformat()
         attachments = []
         for uploaded in files:
             artifact_id = str(uuid.uuid4())

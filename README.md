@@ -125,6 +125,32 @@ curl -X POST http://localhost:8080/orders/<order_id>/validate \
   -d '{"delivery": {"address": "123 Example St", "date": "2024-01-02"}}'
 ```
 
+### LLM gateway + human approval demo (RUN mode)
+
+The Docker Compose stack now includes a provider-agnostic LLM gateway (`llm_gateway`) used by the order intake agent. The order agent never calls providers directly; it always targets the gateway at `LLM_GATEWAY_URL`.
+
+1. Start the stack (Redis, order intake agent, and gateway):
+
+   ```bash
+   docker compose up --build redis llm_gateway order_intake_agent
+   ```
+
+2. Post an order inbox request with an Excel attachment as above. The gateway will generate a draft, but export is held for human approval.
+
+3. Check pending validation items:
+
+   ```bash
+   curl http://localhost:8080/orders/pending-validation
+   ```
+
+4. Approve the order (this is mandatory; no export occurs before validation):
+
+   ```bash
+   curl -X POST http://localhost:8080/orders/<order_id>/validate -H 'Content-Type: application/json' -d '{}'
+   ```
+
+5. After validation, the agent exports a CSV to the shared `storage/exports` directory (mounted from the host). Published events `ORDER.EXPORT_READY` and `DELIVERABLE.PUBLISHED` will now appear on the `audit:events` stream.
+
 Artifacts (uploaded attachments and generated CSV exports) are stored under `./storage` and indexed in Redis with a TTL.
 
 ### Resetting consumer groups
