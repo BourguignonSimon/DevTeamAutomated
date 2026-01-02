@@ -127,7 +127,7 @@ curl -X POST http://localhost:8080/orders/<order_id>/validate \
 
 ### LLM gateway + human approval demo (RUN mode)
 
-The Docker Compose stack now includes a provider-agnostic LLM gateway (`llm_gateway`) used by the order intake agent. The order agent never calls providers directly; it always targets the gateway at `LLM_GATEWAY_URL`.
+The Docker Compose stack now includes a provider-agnostic LLM gateway (`llm_gateway`) used by the order intake agent. The order agent never calls providers directly; it always targets the gateway at `LLM_GATEWAY_URL`. See `docs/AI_AGENT_SOLUTION.md` for the full AI agent LLM mechanism and safety rails.
 
 1. Start the stack (Redis, order intake agent, and gateway):
 
