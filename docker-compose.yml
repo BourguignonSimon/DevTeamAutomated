@@ -130,10 +130,28 @@ services:
       CONSUMER_GROUP: order_intake
       CONSUMER_NAME: order-intake-1
       STORAGE_DIR: /storage
+      LLM_GATEWAY_URL: http://llm_gateway:8000
+      LLM_PROVIDER_ORDER: anthropic,openai,gemini
     volumes:
       - ./storage:/storage
     ports:
       - "8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+      llm_gateway:
+        condition: service_started
+
+  llm_gateway:
+    build:
+      context: .
+      dockerfile: services/llm_gateway/Dockerfile
+    environment:
+      LOG_LEVEL: INFO
+      LLM_PROVIDER_ORDER: anthropic,openai,gemini
+      LLM_TEST_MODE: "true"
+    ports:
+      - "8000:8000"
     depends_on:
       redis:
         condition: service_healthy

@@ -8,6 +8,16 @@
   "required": ["order_id", "reason"],
   "properties": {
     "order_id": {"type": "string", "format": "uuid"},
-    "reason": {"type": "string", "enum": ["missing_fields", "anomalies", "manual_review"]}
+    "reason": {
+      "type": "string",
+      "enum": [
+        "missing_fields",
+        "anomalies",
+        "manual_review",
+        "awaiting_approval",
+        "gateway_unavailable",
+        "schema_mismatch"
+      ]
+    }
   }
 }

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/objects/order_extraction_result.v1.schema.json",
+  "title": "OrderExtractionResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["order_draft", "missing_fields", "anomalies", "email_draft"],
+  "properties": {
+    "order_draft": {"$ref": "../objects/order_draft.v1.schema.json"},
+    "missing_fields": {
+      "type": "array",
+      "items": {"$ref": "../objects/order_issue.v1.schema.json"}
+    },
+    "anomalies": {
+      "type": "array",
+      "items": {"$ref": "../objects/order_issue.v1.schema.json"}
+    },
+    "email_draft": {"$ref": "../objects/email_draft.v1.schema.json"},
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  }
+}
