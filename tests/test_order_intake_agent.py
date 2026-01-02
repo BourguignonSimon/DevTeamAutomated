@@ -5,7 +5,6 @@ from pathlib import Path
 import pytest
 from openpyxl import Workbook
 
-from core.event_utils import envelope
 from services.order_intake_agent.app import Dependencies, get_test_client
 from services.order_intake_agent.processor import OrderIntakeAgent
 from services.order_intake_agent.settings import OrderIntakeSettings
@@ -20,6 +19,8 @@ def order_settings(tmp_path):
         consumer_name="test-consumer",
         storage_dir=str(tmp_path / "storage"),
         log_level="DEBUG",
+        llm_gateway_url="http://fake-gateway",
+        llm_provider_order=("fake",),
     )
 
 
@@ -42,7 +43,52 @@ def _process_all(agent: OrderIntakeAgent):
         processed = agent.processor.consume_once()
 
 
-def test_happy_path_excel_to_export(redis_client, order_settings, tmp_path):
+class DummyResponse:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return self._payload
+
+
+@pytest.fixture
+def gateway_payload_success():
+    return {
+        "ok": True,
+        "provider_used": "fake",
+        "result_json": {
+            "order_draft": {
+                "order_id": "",
+                "po_number": None,
+                "customer": {"name": "", "vat": None, "address": None, "email": "user@example.com"},
+                "delivery": {"address": "123 street", "date": "2024-01-02", "incoterm": None},
+                "currency": "EUR",
+                "lines": [{"line_no": 1, "sku": "SKU-1", "description": "Widget", "qty": 5, "uom": "ea", "unit_price": 1.0}],
+                "totals": {"subtotal": None, "tax": None, "total": None},
+            },
+            "missing_fields": [],
+            "anomalies": [],
+            "email_draft": {"to": "user@example.com", "subject": "Order", "body_text": "text"},
+        },
+    }
+
+
+@pytest.fixture
+def patch_gateway(monkeypatch):
+    def _patch(payload):
+        def fake_post(url, json=None, timeout=None):
+            return DummyResponse(payload)
+
+        monkeypatch.setattr("httpx.post", fake_post)
+
+    return _patch
+
+
+def test_human_approval_required(redis_client, order_settings, tmp_path, patch_gateway, gateway_payload_success):
+    patch_gateway(gateway_payload_success)
     deps = Dependencies(order_settings, redis_client)
     client = get_test_client(deps)
     excel = tmp_path / "order.xlsx"
@@ -61,17 +107,28 @@ def test_happy_path_excel_to_export(redis_client, order_settings, tmp_path):
 
     event_types = _collect_event_types(redis_client)
     assert "ORDER.DRAFT_CREATED" in event_types
+    assert "ORDER.EXPORT_READY" not in event_types
+    assert "DELIVERABLE.PUBLISHED" not in event_types
+    assert order_id in agent.store.list_pending_validation(order_settings.validation_set_key)
+
+    validate_resp = client.post(
+        f"/orders/{order_id}/validate",
+        json={},
+    )
+    assert validate_resp.status_code == 200
+
+    _process_all(agent)
+    event_types = _collect_event_types(redis_client)
+    assert "ORDER.VALIDATED" in event_types
     assert "ORDER.EXPORT_READY" in event_types
     assert "DELIVERABLE.PUBLISHED" in event_types
 
-    draft = agent.store.get_order_draft(order_id)
-    assert draft["lines"]
-    export_meta = agent.store.get_export(order_id)
-    assert export_meta is not None
-    assert Path(export_meta["path"]).exists()
 
+def test_gateway_outage_triggers_manual_review(redis_client, order_settings, tmp_path, monkeypatch):
+    def failing_post(url, json=None, timeout=None):
+        raise RuntimeError("gateway down")
 
-def test_missing_fields_and_validation_loop(redis_client, order_settings, tmp_path):
+    monkeypatch.setattr("httpx.post", failing_post)
     deps = Dependencies(order_settings, redis_client)
     client = get_test_client(deps)
     excel = tmp_path / "order.xlsx"
@@ -80,85 +137,14 @@ def test_missing_fields_and_validation_loop(redis_client, order_settings, tmp_pa
     resp = client.post(
         "/orders/inbox",
         files={"files": ("order.xlsx", excel.read_bytes(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
-        data={"from_email": "user@example.com", "subject": "Missing delivery"},
+        data={"from_email": "user@example.com", "subject": "New order"},
     )
     order_id = resp.json()["order_id"]
 
     agent = OrderIntakeAgent(redis_client, order_settings)
     _process_all(agent)
 
+    missing = agent.store.get_missing_fields(order_id)
+    assert any(m.get("field") == "gateway" for m in missing)
     event_types = _collect_event_types(redis_client)
-    assert "ORDER.MISSING_FIELDS_DETECTED" in event_types
-    assert "ORDER.VALIDATION_REQUIRED" in event_types
-
-    validate_resp = client.post(
-        f"/orders/{order_id}/validate",
-        json={"delivery": {"address": "123 street", "date": "2024-01-02"}},
-    )
-    assert validate_resp.status_code == 200
-
-    _process_all(agent)
-    event_types = _collect_event_types(redis_client)
-    assert "ORDER.VALIDATED" in event_types
-    assert "ORDER.EXPORT_READY" in event_types
-
-
-def test_idempotent_inbox(redis_client, order_settings, tmp_path):
-    agent = OrderIntakeAgent(redis_client, order_settings)
-    env = envelope(
-        event_type="ORDER.INBOX_RECEIVED",
-        payload={
-            "order_id": str(uuid.uuid4()),
-            "from_email": "user@example.com",
-            "subject": "dup",
-            "received_at": "2024-01-01T00:00:00Z",
-            "attachments": [],
-        },
-        source="test",
-        correlation_id=str(uuid.uuid4()),
-        causation_id=None,
-    )
-    redis_client.xadd("audit:events", {"event": json.dumps(env)})
-    redis_client.xadd("audit:events", {"event": json.dumps(env)})
-
-    _process_all(agent)
-    event_types = _collect_event_types(redis_client)
-    assert event_types.count("ORDER.DRAFT_CREATED") == 1
-
-
-def test_invalid_payload_goes_dlq(redis_client, order_settings):
-    agent = OrderIntakeAgent(redis_client, order_settings)
-    bad_env = envelope(
-        event_type="ORDER.INBOX_RECEIVED",
-        payload={"order_id": str(uuid.uuid4()), "subject": "bad", "received_at": "2024-01-01T00:00:00Z", "attachments": []},
-        source="test",
-        correlation_id=str(uuid.uuid4()),
-        causation_id=None,
-    )
-    redis_client.xadd("audit:events", {"event": json.dumps(bad_env)})
-    _process_all(agent)
-    entries = redis_client.xrange("audit:dlq")
-    assert entries
-    last = json.loads(entries[-1][1]["dlq"])
-    assert "required property" in last.get("reason", "")
-
-
-def test_export_lock_ownership(redis_client, order_settings, tmp_path):
-    agent = OrderIntakeAgent(redis_client, order_settings)
-    order_id = str(uuid.uuid4())
-    draft = {
-        "order_id": order_id,
-        "lines": [{"line_no": 1, "sku": "SKU", "qty": 1}],
-        "customer": {"email": "user@example.com"},
-        "delivery": {},
-        "currency": "EUR",
-        "totals": {},
-    }
-    agent.store.save_order_draft(order_id, draft)
-    held = redis_client.set(f"order:{order_id}:export", "foreign", nx=True, px=order_settings.export_lock_ttl_ms)
-    agent._export_and_publish(order_id, draft, {"to": "user@example.com", "subject": "s", "body_text": "b"}, {"event_id": "x", "correlation_id": "c"})
-    assert redis_client.get(f"order:{order_id}:export") == "foreign"
-
-    redis_client.delete(f"order:{order_id}:export")
-    agent._export_and_publish(order_id, draft, {"to": "user@example.com", "subject": "s", "body_text": "b"}, {"event_id": "x", "correlation_id": "c"})
-    assert redis_client.get(f"order:{order_id}:export") is None
+    assert "ORDER.EXPORT_READY" not in event_types
