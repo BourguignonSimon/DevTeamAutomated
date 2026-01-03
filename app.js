@@ -69,6 +69,7 @@
       log('Fetched logs.');
     } catch (error) {
       console.error(error);
+      logsError.textContent = `Failed to load logs (${error.message}). Ensure the backend exposes /api/logs on this origin.`;
       logsError.textContent = 'Failed to load logs. Backend owns log storage and filtering.';
       logsStatus.textContent = 'No logs loaded.';
     }
