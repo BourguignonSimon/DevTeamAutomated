@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Audit Interaction</title>
+  <style>
+    :root {
+      font-family: Arial, sans-serif;
+      background: #f8f9fb;
+      color: #111;
+    }
+    body {
+      margin: 0;
+      padding: 24px;
+      line-height: 1.4;
+    }
+    h1, h2 {
+      margin: 0 0 12px;
+    }
+    section {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: bold;
+    }
+    input[type="text"], input[type="number"], textarea, select {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    textarea { min-height: 80px; }
+    button {
+      cursor: pointer;
+      padding: 10px 14px;
+      border: none;
+      border-radius: 4px;
+      background: #111;
+      color: #fff;
+      font-weight: bold;
+    }
+    .subtext { color: #555; font-size: 0.9rem; }
+    .stack { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .pill {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #eef2ff;
+      color: #1f1f9a;
+      font-weight: bold;
+      font-size: 0.85rem;
+    }
+    .error { color: #b00020; font-weight: bold; }
+    .question {
+      border: 1px solid #e1e1e1;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: #fafafa;
+    }
+    .status-block { font-weight: bold; }
+    .muted { color: #666; }
+  </style>
+</head>
+<body>
+  <h1>Agent-Based Audit Interface</h1>
+  <p class="muted">Backend HTTP API must be reachable on this origin. 404/Not Found responses are expected if the API is not running or routes differ.</p>
+
+  <section id="init-section">
+    <h2>1️⃣ Submit Initial Audit Request</h2>
+    <form id="init-form">
+      <label for="project_name">Project name</label>
+      <input type="text" id="project_name" name="project_name" required>
+
+      <label for="request_text">Description / context</label>
+      <textarea id="request_text" name="request_text" required></textarea>
+
+      <label for="file">Optional file upload (CSV / Excel)</label>
+      <input type="file" id="file" name="file" accept=".csv, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+
+      <button type="submit">Send audit request</button>
+    </form>
+    <div id="init-feedback" class="subtext"></div>
+  </section>
+
+  <section id="questions-section">
+    <h2>2️⃣ View Open Clarification Questions</h2>
+    <p class="muted">Polling backend every 5 seconds for open questions.</p>
+    <div id="questions-container"></div>
+    <div id="questions-error" class="error"></div>
+  </section>
+
+  <section id="status-section">
+    <h2>4️⃣ Project Status (Read-only)</h2>
+    <div class="stack" style="margin-bottom: 8px;">
+      <button id="status-refresh" type="button">Refresh project status</button>
+      <span class="muted">Requires a project_id from the initial request.</span>
+    </div>
+    <div id="project-status" class="subtext">No project tracked yet.</div>
+    <div id="status-error" class="error"></div>
+  </section>
+
+  <section id="log-section">
+    <h2>System Logs</h2>
+    <div class="stack" style="margin-bottom: 8px;">
+      <button id="logs-refresh" type="button">Fetch logs</button>
+      <label for="log-filter" class="muted" style="margin: 0; display: inline-block;">Filter:</label>
+      <input type="text" id="log-filter" placeholder="Search log messages" style="max-width: 260px;">
+    </div>
+    <div id="logs-status" class="muted">No logs loaded.</div>
+    <div id="logs-error" class="error"></div>
+    <div id="log"></div>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
