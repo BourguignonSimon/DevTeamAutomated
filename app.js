@@ -23,6 +23,8 @@
     filterText: '',
   };
 
+  const logBlock = document.getElementById('log');
+
   function log(message) {
     const entry = document.createElement('div');
     const timestamp = new Date().toLocaleTimeString();
@@ -68,6 +70,7 @@
     } catch (error) {
       console.error(error);
       logsError.textContent = `Failed to load logs (${error.message}). Ensure the backend exposes /api/logs on this origin.`;
+      logsError.textContent = 'Failed to load logs. Backend owns log storage and filtering.';
       logsStatus.textContent = 'No logs loaded.';
     }
   }
