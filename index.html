@@ -109,6 +109,14 @@
   </section>
 
   <section id="log-section">
+    <h2>System Logs</h2>
+    <div class="stack" style="margin-bottom: 8px;">
+      <button id="logs-refresh" type="button">Fetch logs</button>
+      <label for="log-filter" class="muted" style="margin: 0; display: inline-block;">Filter:</label>
+      <input type="text" id="log-filter" placeholder="Search log messages" style="max-width: 260px;">
+    </div>
+    <div id="logs-status" class="muted">No logs loaded.</div>
+    <div id="logs-error" class="error"></div>
     <h2>Event Log</h2>
     <div id="log"></div>
   </section>

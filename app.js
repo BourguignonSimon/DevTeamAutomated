@@ -12,6 +12,17 @@
   const projectStatusBlock = document.getElementById('project-status');
   const statusError = document.getElementById('status-error');
   const statusRefreshBtn = document.getElementById('status-refresh');
+  const logsRefreshBtn = document.getElementById('logs-refresh');
+  const logsStatus = document.getElementById('logs-status');
+  const logsError = document.getElementById('logs-error');
+  const logFilter = document.getElementById('log-filter');
+  const logBlock = document.getElementById('log');
+
+  const logState = {
+    entries: [],
+    filterText: '',
+  };
+
   const logBlock = document.getElementById('log');
 
   function log(message) {
@@ -44,6 +55,46 @@
         refreshProjectStatus();
       }
     }, 5000);
+  }
+
+  async function fetchLogs() {
+    logsError.textContent = '';
+    logsStatus.textContent = 'Loading logs...';
+    try {
+      const data = await fetchJson('/api/logs');
+      const logs = Array.isArray(data) ? data : data?.logs || [];
+      logState.entries = logs;
+      renderLogs();
+      logsStatus.textContent = `Loaded ${logs.length} logs.`;
+      log('Fetched logs.');
+    } catch (error) {
+      console.error(error);
+      logsError.textContent = 'Failed to load logs. Backend owns log storage and filtering.';
+      logsStatus.textContent = 'No logs loaded.';
+    }
+  }
+
+  function renderLogs() {
+    logBlock.innerHTML = '';
+    const filtered = logState.filterText
+      ? logState.entries.filter((line) => `${line}`.toLowerCase().includes(logState.filterText))
+      : logState.entries;
+
+    if (!filtered.length) {
+      const empty = document.createElement('div');
+      empty.className = 'muted';
+      empty.textContent = logState.entries.length
+        ? 'No logs match filter.'
+        : 'No logs available yet.';
+      logBlock.appendChild(empty);
+      return;
+    }
+
+    filtered.forEach((line) => {
+      const entry = document.createElement('div');
+      entry.textContent = `${line}`;
+      logBlock.appendChild(entry);
+    });
   }
 
   initForm.addEventListener('submit', async (event) => {
@@ -199,6 +250,11 @@
   }
 
   statusRefreshBtn.addEventListener('click', refreshProjectStatus);
+  logsRefreshBtn.addEventListener('click', fetchLogs);
+  logFilter.addEventListener('input', (event) => {
+    logState.filterText = (event.target.value || '').toLowerCase();
+    renderLogs();
+  });
 
   startPollingQuestions();
 })();
