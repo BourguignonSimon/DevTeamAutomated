@@ -23,6 +23,8 @@
     filterText: '',
   };
 
+  const logBlock = document.getElementById('log');
+
   function log(message) {
     const entry = document.createElement('div');
     const timestamp = new Date().toLocaleTimeString();
