@@ -53,7 +53,9 @@
     }, 'ui');
     logState.entries = [entry, ...logState.entries];
     renderLogs();
-  }
+  };
+
+  const logBlock = document.getElementById('log');
 
   async function fetchJson(url, options) {
     const response = await fetch(url, options);
@@ -84,30 +86,25 @@
     logsError.textContent = '';
     logsStatus.textContent = 'Loading logs...';
     try {
-        const data = await fetchJson('/api/logs');
-        const logs = Array.isArray(data) ? data : data?.logs || [];
-        logState.entries = logs.map((line) => normalizeLogEntry(line));
-        renderLogs();
-        logsStatus.textContent = `Loaded ${logs.length} logs.`;
-        log('Fetched logs.');
-      } catch (error) {
-        console.error(error);
-        logsError.textContent = `Failed to load logs (${error.message}). Ensure the backend exposes /api/logs on this origin.`;
+      const data = await fetchJson('/api/logs');
+      const logs = Array.isArray(data) ? data : data?.logs || [];
+      logState.entries = logs;
+      renderLogs();
+      logsStatus.textContent = `Loaded ${logs.length} logs.`;
+      log('Fetched logs.');
+    } catch (error) {
+      console.error(error);
+      logsError.textContent = `Failed to load logs (${error.message}). Ensure the backend exposes /api/logs on this origin.`;
+      logsError.textContent = 'Failed to load logs. Backend owns log storage and filtering.';
       logsStatus.textContent = 'No logs loaded.';
     }
   }
 
   function renderLogs() {
     logBlock.innerHTML = '';
-    const filterText = logState.filterText;
-    const filterLevel = logState.filterLevel;
-    const filtered = logState.entries.filter((entry) => {
-      const levelMatch = filterLevel === 'all' || entry.level === filterLevel;
-      const textMatch = filterText
-        ? (entry.text || '').toLowerCase().includes(filterText)
-        : true;
-      return levelMatch && textMatch;
-    });
+    const filtered = logState.filterText
+      ? logState.entries.filter((line) => `${line}`.toLowerCase().includes(logState.filterText))
+      : logState.entries;
 
     if (!filtered.length) {
       const empty = document.createElement('div');
