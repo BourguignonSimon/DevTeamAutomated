@@ -13,24 +13,49 @@
   const statusError = document.getElementById('status-error');
   const statusRefreshBtn = document.getElementById('status-refresh');
   const logsRefreshBtn = document.getElementById('logs-refresh');
+  const logsClearBtn = document.getElementById('logs-clear');
   const logsStatus = document.getElementById('logs-status');
   const logsError = document.getElementById('logs-error');
   const logFilter = document.getElementById('log-filter');
+  const logLevelSelect = document.getElementById('log-level');
   const logBlock = document.getElementById('log');
 
   const logState = {
     entries: [],
     filterText: '',
+    filterLevel: 'all',
+  };
+
+  function normalizeLogEntry(entry, source = 'remote') {
+    const normalized = { level: 'other', text: '', timestamp: '', source };
+    if (entry && typeof entry === 'object') {
+      normalized.text = entry.message || entry.msg || entry.text || entry.log || JSON.stringify(entry);
+      const level = `${entry.level || entry.severity || entry.status || ''}`.toLowerCase();
+      if (['error', 'err'].includes(level)) normalized.level = 'error';
+      else if (['warn', 'warning'].includes(level)) normalized.level = 'warn';
+      else if (['info', 'information'].includes(level)) normalized.level = 'info';
+      normalized.timestamp = entry.timestamp || entry.time || entry.ts || entry.date || '';
+    } else {
+      normalized.text = `${entry ?? ''}`;
+      const lowered = normalized.text.toLowerCase();
+      if (lowered.includes('error')) normalized.level = 'error';
+      else if (lowered.includes('warn')) normalized.level = 'warn';
+      else if (lowered.includes('info')) normalized.level = 'info';
+    }
+    return normalized;
+  }
+
+  function log(message, level = 'info') {
+    const entry = normalizeLogEntry({
+      message,
+      level,
+      timestamp: new Date().toISOString(),
+    }, 'ui');
+    logState.entries = [entry, ...logState.entries];
+    renderLogs();
   };
 
   const logBlock = document.getElementById('log');
-
-  function log(message) {
-    const entry = document.createElement('div');
-    const timestamp = new Date().toLocaleTimeString();
-    entry.textContent = `[${timestamp}] ${message}`;
-    logBlock.prepend(entry);
-  }
 
   async function fetchJson(url, options) {
     const response = await fetch(url, options);
@@ -91,10 +116,35 @@
       return;
     }
 
-    filtered.forEach((line) => {
-      const entry = document.createElement('div');
-      entry.textContent = `${line}`;
-      logBlock.appendChild(entry);
+    filtered.forEach((entry) => {
+      const row = document.createElement('div');
+      row.className = 'log-row';
+
+      const badge = document.createElement('span');
+      badge.className = `badge ${entry.level}`;
+      badge.textContent = entry.level.toUpperCase();
+      row.appendChild(badge);
+
+      if (entry.timestamp) {
+        const meta = document.createElement('span');
+        meta.className = 'log-meta';
+        meta.textContent = entry.timestamp;
+        row.appendChild(meta);
+      }
+
+      const text = document.createElement('span');
+      text.textContent = entry.text;
+      row.appendChild(text);
+
+      if (entry.source) {
+        const source = document.createElement('span');
+        source.className = 'muted';
+        source.style.marginLeft = '8px';
+        source.textContent = `(${entry.source})`;
+        row.appendChild(source);
+      }
+
+      logBlock.appendChild(row);
     });
   }
 
@@ -254,6 +304,15 @@
   logsRefreshBtn.addEventListener('click', fetchLogs);
   logFilter.addEventListener('input', (event) => {
     logState.filterText = (event.target.value || '').toLowerCase();
+    renderLogs();
+  });
+  logLevelSelect.addEventListener('change', (event) => {
+    logState.filterLevel = event.target.value;
+    renderLogs();
+  });
+  logsClearBtn.addEventListener('click', () => {
+    logState.entries = [];
+    logsStatus.textContent = 'Cleared log view.';
     renderLogs();
   });
 

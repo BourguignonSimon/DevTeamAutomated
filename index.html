@@ -68,59 +68,113 @@
       background: #fafafa;
     }
     .status-block { font-weight: bold; }
-    .muted { color: #666; }
+    .muted { color: #6b7280; }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+      gap: 16px;
+    }
+    @media (max-width: 960px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+    .log-panel {
+      border: 1px solid #e4e7ec;
+      border-radius: 8px;
+      background: #0b1220;
+      color: #e5e7eb;
+      padding: 12px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      height: 460px;
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+    .log-row { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .log-row:last-child { border-bottom: none; }
+    .log-meta { display: inline-block; min-width: 64px; margin-right: 10px; font-weight: bold; }
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: bold;
+      background: #e5e7eb;
+      color: #111827;
+      margin-right: 8px;
+    }
+    .badge.info { background: #dbeafe; color: #1d4ed8; }
+    .badge.warn { background: #fef3c7; color: #b45309; }
+    .badge.error { background: #fee2e2; color: #b91c1c; }
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .control-group { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
   </style>
 </head>
 <body>
   <h1>Agent-Based Audit Interface</h1>
   <p class="muted">Backend HTTP API must be reachable on this origin. 404/Not Found responses are expected if the API is not running or routes differ.</p>
 
-  <section id="init-section">
-    <h2>1️⃣ Submit Initial Audit Request</h2>
-    <form id="init-form">
-      <label for="project_name">Project name</label>
-      <input type="text" id="project_name" name="project_name" required>
+  <div class="layout">
+    <div>
+      <section id="init-section">
+        <h2>1️⃣ Submit Initial Audit Request</h2>
+        <form id="init-form">
+          <label for="project_name">Project name</label>
+          <input type="text" id="project_name" name="project_name" required>
 
-      <label for="request_text">Description / context</label>
-      <textarea id="request_text" name="request_text" required></textarea>
+          <label for="request_text">Description / context</label>
+          <textarea id="request_text" name="request_text" required></textarea>
 
-      <label for="file">Optional file upload (CSV / Excel)</label>
-      <input type="file" id="file" name="file" accept=".csv, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+          <label for="file">Optional file upload (CSV / Excel)</label>
+          <input type="file" id="file" name="file" accept=".csv, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
 
-      <button type="submit">Send audit request</button>
-    </form>
-    <div id="init-feedback" class="subtext"></div>
-  </section>
+          <button type="submit">Send audit request</button>
+        </form>
+        <div id="init-feedback" class="subtext"></div>
+      </section>
 
-  <section id="questions-section">
-    <h2>2️⃣ View Open Clarification Questions</h2>
-    <p class="muted">Polling backend every 5 seconds for open questions.</p>
-    <div id="questions-container"></div>
-    <div id="questions-error" class="error"></div>
-  </section>
+      <section id="questions-section">
+        <h2>2️⃣ View Open Clarification Questions</h2>
+        <p class="muted">Polling backend every 5 seconds for open questions.</p>
+        <div id="questions-container"></div>
+        <div id="questions-error" class="error"></div>
+      </section>
 
-  <section id="status-section">
-    <h2>4️⃣ Project Status (Read-only)</h2>
-    <div class="stack" style="margin-bottom: 8px;">
-      <button id="status-refresh" type="button">Refresh project status</button>
-      <span class="muted">Requires a project_id from the initial request.</span>
+      <section id="status-section">
+        <h2>4️⃣ Project Status (Read-only)</h2>
+        <div class="stack" style="margin-bottom: 8px;">
+          <button id="status-refresh" type="button">Refresh project status</button>
+          <span class="muted">Requires a project_id from the initial request.</span>
+        </div>
+        <div id="project-status" class="subtext">No project tracked yet.</div>
+        <div id="status-error" class="error"></div>
+      </section>
     </div>
-    <div id="project-status" class="subtext">No project tracked yet.</div>
-    <div id="status-error" class="error"></div>
-  </section>
 
-  <section id="log-section">
-    <h2>System Logs</h2>
-    <div class="stack" style="margin-bottom: 8px;">
-      <button id="logs-refresh" type="button">Fetch logs</button>
-      <label for="log-filter" class="muted" style="margin: 0; display: inline-block;">Filter:</label>
-      <input type="text" id="log-filter" placeholder="Search log messages" style="max-width: 260px;">
-    </div>
-    <div id="logs-status" class="muted">No logs loaded.</div>
-    <div id="logs-error" class="error"></div>
-    <h2>Event Log</h2>
-    <div id="log"></div>
-  </section>
+    <section id="log-section">
+      <h2>System Logs</h2>
+      <p class="muted">Central place to inspect backend activity. Filters operate locally; backend remains source of truth.</p>
+      <div class="controls" style="margin-bottom: 10px;">
+        <button id="logs-refresh" type="button">Fetch logs</button>
+        <div class="control-group">
+          <label for="log-filter" class="muted" style="margin: 0;">Text filter</label>
+          <input type="text" id="log-filter" placeholder="Search log messages" style="max-width: 320px; margin: 0;">
+        </div>
+        <div class="control-group" style="max-width: 160px;">
+          <label for="log-level" class="muted" style="margin: 0;">Level</label>
+          <select id="log-level" style="margin: 0;">
+            <option value="all">All</option>
+            <option value="error">Error</option>
+            <option value="warn">Warning</option>
+            <option value="info">Info</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <button id="logs-clear" class="secondary" type="button">Clear view</button>
+      </div>
+      <div id="logs-status" class="muted">No logs loaded.</div>
+      <div id="logs-error" class="error"></div>
+      <div id="log" class="log-panel"></div>
+    </section>
+  </div>
 
   <script src="app.js"></script>
 </body>
