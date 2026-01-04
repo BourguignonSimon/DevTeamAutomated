@@ -5,6 +5,9 @@ This package includes:
 - **EPIC 2**: Orchestrator (state machine, backlog generation, dispatch, DoD enforcement).
 - **EPIC 5**: AI agent teams design for audit operations (see `docs/EPIC5_AI_AGENT_TEAMS.md`).
 
+For a step-by-step usage walkthrough (Docker Compose, Python entrypoints, HTTP gateway, and order intake flows), see
+`docs/TOOL_USAGE.md`.
+
 ## Quickstart (runtime stack)
 
 Bring up Redis, orchestrator, schema validator, and the four EPIC5 worker agents with Docker Compose:
