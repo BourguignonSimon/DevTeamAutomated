@@ -118,6 +118,51 @@ services:
       redis:
         condition: service_healthy
 
+  requirements_manager_worker:
+    build:
+      context: .
+      dockerfile: services/requirements_manager_worker/Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: requirements_manager_workers
+      CONSUMER_NAME: requirements-manager-1
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  dev_worker:
+    build:
+      context: .
+      dockerfile: services/dev_worker/Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: dev_workers
+      CONSUMER_NAME: dev-worker-1
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  test_worker:
+    build:
+      context: .
+      dockerfile: services/test_worker/Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: test_workers
+      CONSUMER_NAME: test-worker-1
+    depends_on:
+      redis:
+        condition: service_healthy
+
   order_intake_agent:
     build:
       context: .
