@@ -293,7 +293,19 @@ def _dispatch_ready_tasks(r, settings, store: "BacklogStore", correlation_id: st
                     ready_ids.append(it["id"])
 
         for item_id in ready_ids:
-            # Emit event
+            current = store.get_item(project_id, item_id) if hasattr(store, "get_item") else None
+            title = (current or {}).get("title") or ""
+            title_lower = title.lower()
+
+            if "collect requirements" in title:
+                agent_target = "requirements_manager"
+            elif "run checks" in title:
+                agent_target = "dev_worker"
+            elif "produce report" in title or "test" in title_lower:
+                agent_target = "test_worker"
+            else:
+                agent_target = "dev_worker"
+
             env = {
                 "event_id": str(uuid.uuid4()),
                 "event_type": "WORK.ITEM_DISPATCHED",
@@ -305,13 +317,15 @@ def _dispatch_ready_tasks(r, settings, store: "BacklogStore", correlation_id: st
                 "payload": {
                     "project_id": project_id,
                     "backlog_item_id": item_id,
-                    "agent": "dev_worker",
+                    "item_type": (current or {}).get("type"),
+                    "agent_target": agent_target,
+                    "work_context": {"rows": []},
                 },
             }
             r.xadd(settings.stream_name, {"event": json.dumps(env)})
 
             if hasattr(store, "set_status"):
-                current = store.get_item(project_id, item_id)
+                current = current or store.get_item(project_id, item_id)
                 if current:
                     try:
                         assert_transition(current.get("status"), BacklogStatus.IN_PROGRESS.value)
