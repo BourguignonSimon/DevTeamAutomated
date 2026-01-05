@@ -23,3 +23,24 @@ class Settings:
     idempotence_ttl_s: int = dedupe_ttl_s
 
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
+
+    # Compatibility aliases for settings consumed across services
+    @property
+    def xread_block_ms(self) -> int:
+        """Preferred block duration used by stream consumers."""
+        return self.block_ms
+
+    @property
+    def pending_reclaim_min_idle_ms(self) -> int:
+        """Minimum idle time before attempting to reclaim pending messages."""
+        return self.idle_reclaim_ms
+
+    @property
+    def pending_reclaim_count(self) -> int:
+        """Maximum number of pending messages to reclaim per iteration."""
+        return self.reclaim_count
+
+    @property
+    def read_block_on(self) -> int:
+        """Alias kept for backward compatibility with older worker code."""
+        return self.block_ms
