@@ -22,14 +22,14 @@ jobs:
         run: uv sync --group dev --no-install-project
       - name: Lint (ruff)
         run: |
-          uv run ruff format --check .
-          uv run ruff check .
+          .venv/bin/ruff format --check .
+          .venv/bin/ruff check .
       - name: Type check (mypy)
-        run: uv run mypy .
+        run: .venv/bin/mypy .
       - name: Type check (pyright)
-        run: uv run pyright
+        run: .venv/bin/pyright
       - name: Test
-        run: uv run pytest -q -m "not integration"
+        run: .venv/bin/pytest -q -m "not integration"
 
   docker-build:
     runs-on: ubuntu-latest
