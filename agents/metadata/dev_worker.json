@@ -1,0 +1,7 @@
+{
+  "name": "dev_worker",
+  "capabilities": ["feature_dev", "bugfix"],
+  "inputs": ["backlog_item"],
+  "outputs": ["evidence", "work.completed"],
+  "failure_modes": ["TOOL_FAILURE", "DATA_INSUFFICIENCY"]
+}

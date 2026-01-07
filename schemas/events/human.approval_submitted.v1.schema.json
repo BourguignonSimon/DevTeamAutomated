@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/human.approval_submitted.v1.schema.json",
+  "title": "HUMAN.APPROVAL_SUBMITTED payload v1",
+  "x_event_type": "HUMAN.APPROVAL_SUBMITTED",
+  "type": "object",
+  "required": ["project_id", "backlog_item_id", "approved"],
+  "additionalProperties": false,
+  "properties": {
+    "project_id": {"type": "string", "format": "uuid"},
+    "backlog_item_id": {"type": "string"},
+    "approved": {"type": "boolean"},
+    "notes": {"type": ["string", "null"]}
+  }
+}

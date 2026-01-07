@@ -1,0 +1,7 @@
+{
+  "name": "orchestrator",
+  "capabilities": ["dispatch", "definition_of_done", "human_gates"],
+  "inputs": ["audit:events"],
+  "outputs": ["work.item_dispatched", "clarification.needed"],
+  "failure_modes": ["DATA_INSUFFICIENCY"]
+}

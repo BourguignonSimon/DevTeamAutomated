@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/objects/facts.v1.schema.json",
+  "title": "Facts",
+  "type": "object",
+  "required": ["facts"],
+  "properties": {
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "field", "value", "provenance"],
+        "properties": {
+          "id": {"type": "string"},
+          "field": {"type": "string"},
+          "value": {},
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "row_id": {},
+              "source_fields": {"type": "array", "items": {"type": "string"}},
+              "unit": {"type": ["string", "null"]}
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

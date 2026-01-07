@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/objects/fact_ledger_entry.v1.schema.json",
+  "title": "Fact Ledger Entry",
+  "type": "object",
+  "required": ["project_id", "backlog_item_id", "facts", "coefficients"],
+  "properties": {
+    "project_id": {"type": "string"},
+    "backlog_item_id": {"type": "string"},
+    "facts": {"$ref": "facts.v1.schema.json#/properties/facts"},
+    "coefficients": {"type": "object", "additionalProperties": true}
+  },
+  "additionalProperties": false
+}
