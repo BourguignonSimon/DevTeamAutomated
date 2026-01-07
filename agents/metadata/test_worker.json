@@ -1,0 +1,7 @@
+{
+  "name": "test_worker",
+  "capabilities": ["publish_deliverable", "run_sanity_checks"],
+  "inputs": ["work_context.rows"],
+  "outputs": ["deliverable", "work.completed"],
+  "failure_modes": ["DATA_INSUFFICIENCY", "REASONING_CONTRADICTION"]
+}
