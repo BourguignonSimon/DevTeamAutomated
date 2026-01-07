@@ -7,6 +7,7 @@ COPY core ./core
 COPY schemas ./schemas
 COPY services ./services
 COPY demo ./demo
+COPY prompts ./prompts
 COPY pytest.ini ./
 COPY tests ./tests
 ENV PYTHONPATH=/app
