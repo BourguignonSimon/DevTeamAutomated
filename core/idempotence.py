@@ -14,13 +14,6 @@ def _key(prefix: str, consumer_group: str, event_id: str) -> str:
     return f"{prefix}:{consumer_group}:{event_id}"
 
 
-_DEFAULT_PREFIX = "audit:processed"
-
-
-def _key(prefix: str, consumer_group: str, event_id: str) -> str:
-    return f"{prefix}:{consumer_group}:{event_id}"
-
-
 def mark_if_new(
     r: redis.Redis,
     *,

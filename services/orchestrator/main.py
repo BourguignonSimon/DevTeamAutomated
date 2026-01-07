@@ -177,25 +177,30 @@ def process_message(
         ack(r, settings.stream_name, group, msg_id)
         return
 
+    event_type = env["event_type"]
+    payload = env.get("payload")
+
+    corr = env.get("correlation_id") or str(uuid.uuid4())
+    caus = env.get("event_id")
     event_id = env["event_id"]
 
     # idempotence
-    if not mark_if_new(r, event_id=event_id, ttl_s=settings.idempotence_ttl_s):
+    if not mark_if_new(
+        r,
+        event_id=event_id,
+        consumer_group=settings.consumer_group,
+        ttl_s=settings.idempotence_ttl_s,
+        correlation_id=corr,
+    ):
         log.info("duplicate event ignored event_id=%s", event_id)
         ack(r, settings.stream_name, group, msg_id)
         return
-
-    event_type = env["event_type"]
-    payload = env.get("payload")
 
     res_pl = validate_payload(reg, event_type, payload)
     if not res_pl.ok:
         _dlq(r, res_pl.error or "invalid payload", fields, schema_id=res_pl.schema_id)
         ack(r, settings.stream_name, group, msg_id)
         return
-
-    corr = env.get("correlation_id") or str(uuid.uuid4())
-    caus = env.get("event_id")
 
     # domain/business logic (no raises)
     try:
