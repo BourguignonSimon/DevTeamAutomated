@@ -10,6 +10,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from core.config import Settings
 from core.dlq import publish_dlq
+from core.failures import Failure, FailureCategory
+from core.grounding import GroundingEngine
 from core.idempotence import mark_if_new
 from core.redis_streams import ack, build_redis_client, ensure_consumer_group, read_group
 from core.schema_registry import load_registry
@@ -17,8 +19,18 @@ from core.schema_validate import validate_envelope, validate_payload
 from core.state_machine import BacklogStatus, assert_transition
 from core.backlog_store import BacklogStore
 from core.question_store import QuestionStore
+from core.trace import TraceLogger, TraceRecord
+from core.validators import DefinitionOfDoneRegistry, ValidationResult, default_validator
+from core.metrics import MetricsRecorder
 
 log = logging.getLogger("orchestrator")
+trace_logger = TraceLogger()
+metrics = MetricsRecorder()
+dod_registry = DefinitionOfDoneRegistry()
+dod_registry.register("test_worker", default_validator)
+dod_registry.register("dev_worker", default_validator)
+dod_registry.register("requirements_manager", default_validator)
+dod_registry.register("scenario_worker", default_validator)
 
 
 # ----------------------------
@@ -260,6 +272,72 @@ def process_message(
                 r.xadd(settings.stream_name, {"event": json.dumps(ub_env)})
 
                 _dispatch_ready_tasks(r, settings, store, corr, caus)
+
+        elif event_type == "WORK.ITEM_COMPLETED":
+            project_id = payload["project_id"]
+            backlog_item_id = payload["backlog_item_id"]
+            agent = env.get("source", {}).get("service") or "unknown"
+            metrics.inc("work_item_completed_seen")
+            result: ValidationResult = dod_registry.validate(agent, payload)
+            if not result.ok:
+                reason = result.reason or "dod_failed"
+                fail_env = envelope(
+                    event_type="WORK.ITEM_FAILED",
+                    payload={
+                        "project_id": project_id,
+                        "backlog_item_id": backlog_item_id,
+                        "failure": Failure(FailureCategory.DATA_INSUFFICIENCY, reason).to_payload(),
+                    },
+                    source="orchestrator",
+                    correlation_id=corr,
+                    causation_id=caus,
+                )
+                r.xadd(settings.stream_name, {"event": json.dumps(fail_env)})
+                clar_env = envelope(
+                    event_type="CLARIFICATION.NEEDED",
+                    payload={
+                        "project_id": project_id,
+                        "backlog_item_id": backlog_item_id,
+                        "reason": reason,
+                        "agent": agent,
+                    },
+                    source="orchestrator",
+                    correlation_id=corr,
+                    causation_id=caus,
+                )
+                r.xadd(settings.stream_name, {"event": json.dumps(clar_env)})
+            else:
+                current = store.get_item(project_id, backlog_item_id) if hasattr(store, "get_item") else None
+                try:
+                    assert_transition((current or {}).get("status"), BacklogStatus.DONE.value)
+                except Exception:
+                    try:
+                        store.set_status(project_id, backlog_item_id, BacklogStatus.DONE.value)
+                    except Exception:
+                        pass
+                trace_logger.log(
+                    TraceRecord(
+                        agent=agent,
+                        event_type=event_type,
+                        decision="definition_of_done_passed",
+                        inputs={"payload": payload},
+                        outputs={"status": "DONE"},
+                        correlation_id=corr,
+                    )
+                )
+
+        elif event_type == "HUMAN.APPROVAL_REQUESTED":
+            project_id = payload["project_id"]
+            backlog_item_id = payload["backlog_item_id"]
+            r.set(f"approval:pending:{project_id}:{backlog_item_id}", "1")
+            metrics.inc("human_approval_requested")
+
+        elif event_type == "HUMAN.APPROVAL_SUBMITTED":
+            project_id = payload["project_id"]
+            backlog_item_id = payload["backlog_item_id"]
+            r.delete(f"approval:pending:{project_id}:{backlog_item_id}")
+            metrics.inc("human_approval_completed")
+            _dispatch_ready_tasks(r, settings, store, corr, caus)
 
         # else: ignore other event_types for EPIC3 scope
 
