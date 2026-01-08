@@ -1,0 +1,7 @@
+{
+  "include": ["core", "demo", "services", "tests"],
+  "exclude": ["**/__pycache__", ".venv", "reports", "docs"],
+  "typeCheckingMode": "basic",
+  "reportMissingImports": false,
+  "pythonVersion": "3.11"
+}
