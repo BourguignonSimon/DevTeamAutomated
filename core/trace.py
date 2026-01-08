@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, asdict
 from typing import Any, Dict, Optional
 
@@ -19,9 +20,9 @@ class TraceRecord:
 
 
 class TraceLogger:
-    def __init__(self, redis_client=None, prefix: str = "audit:trace"):
+    def __init__(self, redis_client=None, prefix: str | None = None):
         self.redis = redis_client
-        self.prefix = prefix
+        self.prefix = prefix or os.getenv("TRACE_PREFIX", "audit:trace")
 
     def log(self, record: TraceRecord) -> None:
         key = f"{self.prefix}:{record.agent}"

@@ -106,6 +106,7 @@ class ReliableStreamProcessor:
             self.r,
             consumer_group=self.settings.consumer_group,
             event_id=event_id,
+            prefix=self.settings.idempotence_prefix,
         ):
             log.info("skip duplicate event_id=%s group=%s", event_id, self.settings.consumer_group)
             self.r.xack(self.settings.stream_name, self.settings.consumer_group, msg_id)
@@ -126,6 +127,7 @@ class ReliableStreamProcessor:
                 consumer_group=self.settings.consumer_group,
                 event_id=event_id,
                 ttl_s=self.settings.dedupe_ttl_s,
+                prefix=self.settings.idempotence_prefix,
             )
         self.r.xack(self.settings.stream_name, self.settings.consumer_group, msg_id)
 
