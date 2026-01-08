@@ -24,8 +24,8 @@ from core.validators import DefinitionOfDoneRegistry, ValidationResult, default_
 from core.metrics import MetricsRecorder
 
 log = logging.getLogger("orchestrator")
-trace_logger = TraceLogger()
-metrics = MetricsRecorder()
+trace_logger: TraceLogger | None = None
+metrics: MetricsRecorder | None = None
 dod_registry = DefinitionOfDoneRegistry()
 dod_registry.register("test_worker", default_validator)
 dod_registry.register("dev_worker", default_validator)
@@ -157,6 +157,12 @@ def process_message(
     msg_id: str,
     fields: Dict[str, str],
 ) -> None:
+    global trace_logger
+    global metrics
+    if trace_logger is None:
+        trace_logger = TraceLogger(prefix=settings.trace_prefix)
+    if metrics is None:
+        metrics = MetricsRecorder(prefix=settings.metrics_prefix)
     # parse
     if "event" not in fields:
         _dlq(r, "missing field 'event'", fields)
@@ -190,6 +196,7 @@ def process_message(
         event_id=event_id,
         consumer_group=settings.consumer_group,
         ttl_s=settings.idempotence_ttl_s,
+        prefix=settings.idempotence_prefix,
         correlation_id=corr,
     ):
         log.info("duplicate event ignored event_id=%s", event_id)
@@ -425,6 +432,10 @@ def main() -> None:
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 
     settings = Settings()
+    global trace_logger
+    global metrics
+    trace_logger = TraceLogger(prefix=settings.trace_prefix)
+    metrics = MetricsRecorder(prefix=settings.metrics_prefix)
 
     # registry + redis
     reg = load_registry("/app/schemas")
@@ -437,8 +448,8 @@ def main() -> None:
     # Create group + stream if missing
     ensure_consumer_group(r, settings.stream_name, group)
 
-    store = BacklogStore(r)
-    qstore = QuestionStore(r)
+    store = BacklogStore(r, prefix=settings.key_prefix)
+    qstore = QuestionStore(r, prefix=settings.key_prefix)
 
     log.info("orchestrator listening stream=%s group=%s consumer=%s", settings.stream_name, group, consumer)
 

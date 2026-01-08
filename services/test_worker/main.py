@@ -117,7 +117,7 @@ def _process_message(r, reg, settings: Settings, msg_id: str, fields: dict) -> N
 
     event_id = env.get("event_id")
     idem_key = f"{event_id}:{settings.consumer_group}"
-    if not mark_if_new(r, event_id=idem_key, ttl_s=settings.idempotence_ttl_s):
+    if not mark_if_new(r, event_id=idem_key, ttl_s=settings.idempotence_ttl_s, prefix=settings.idempotence_prefix):
         ack(r, settings.stream_name, settings.consumer_group, msg_id)
         return
 

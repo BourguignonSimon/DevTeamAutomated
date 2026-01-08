@@ -1,5 +1,7 @@
 # Audit Flash
 
+Audit Flash is a general-purpose event-driven workflow toolkit. It ships with an audit-themed default configuration, but every key namespace and stream name can be overridden so the same package works for any workflow domain.
+
 This package includes:
 - **EPIC 1**: strict JSON contracts (EventEnvelope + payload schemas) and a generic validator consumer.
 - **EPIC 2**: Orchestrator (state machine, backlog generation, dispatch, DoD enforcement).
@@ -14,6 +16,18 @@ Bring up Redis, orchestrator, schema validator, and the four EPIC5 worker agents
 
 ```bash
 docker compose up --build
+```
+
+### Use a custom namespace
+
+By default, stream names and Redis keys use the `audit` namespace. To reuse the toolkit for other workflows, override the namespace or specific prefixes:
+
+```bash
+export NAMESPACE=workflow
+# Optional granular overrides:
+# export STREAM_NAME=workflow:events
+# export DLQ_STREAM=workflow:dlq
+# export KEY_PREFIX=workflow
 ```
 
 Redis is exposed on **localhost:6380**. Publish an intake event to trigger the flow:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import time
 from collections import defaultdict
 from typing import Dict
@@ -8,9 +9,9 @@ from typing import Dict
 class MetricsRecorder:
     """Lightweight metrics sink safe for unit tests and Redis-backed runtime."""
 
-    def __init__(self, redis_client=None, prefix: str = "audit:metrics"):
+    def __init__(self, redis_client=None, prefix: str | None = None):
         self.redis = redis_client
-        self.prefix = prefix
+        self.prefix = prefix or os.getenv("METRICS_PREFIX", "audit:metrics")
         self._counters: Dict[str, int] = defaultdict(int)
         self._timers: Dict[str, list[float]] = defaultdict(list)
 

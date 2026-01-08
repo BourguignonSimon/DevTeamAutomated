@@ -35,7 +35,7 @@ class Dependencies:
     def __init__(self, settings: OrderIntakeSettings, r: redis.Redis):
         self.settings = settings
         self.redis = r
-        self.store = OrderStore(r, storage_dir=settings.storage_dir)
+        self.store = OrderStore(r, prefix=settings.orders_prefix, storage_dir=settings.storage_dir)
 
 
 def get_deps():  # pragma: no cover - runtime dependency

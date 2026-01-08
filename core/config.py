@@ -8,10 +8,11 @@ class Settings:
     redis_port: int = int(os.getenv("REDIS_PORT", "6379"))
     redis_db: int = int(os.getenv("REDIS_DB", "0"))
 
-    stream_name: str = os.getenv("STREAM_NAME", "audit:events")
-    dlq_stream: str = os.getenv("DLQ_STREAM", "audit:dlq")
+    namespace: str = os.getenv("NAMESPACE", os.getenv("APP_NAMESPACE", "audit"))
+    stream_name: str = os.getenv("STREAM_NAME", "")
+    dlq_stream: str = os.getenv("DLQ_STREAM", "")
 
-    consumer_group: str = os.getenv("CONSUMER_GROUP", "audit_stream_consumers")
+    consumer_group: str = os.getenv("CONSUMER_GROUP", "")
     consumer_name: str = os.getenv("CONSUMER_NAME", "consumer-1")
 
     block_ms: int = int(os.getenv("BLOCK_MS", os.getenv("XREAD_BLOCK_MS", "2000")))
@@ -23,6 +24,27 @@ class Settings:
     idempotence_ttl_s: int = dedupe_ttl_s
 
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
+    key_prefix: str = os.getenv("KEY_PREFIX", "")
+    trace_prefix: str = os.getenv("TRACE_PREFIX", "")
+    metrics_prefix: str = os.getenv("METRICS_PREFIX", "")
+    idempotence_prefix: str = os.getenv("IDEMPOTENCE_PREFIX", "")
+
+    def __post_init__(self) -> None:
+        namespace = (self.namespace or "audit").strip(":")
+        if not self.stream_name:
+            object.__setattr__(self, "stream_name", f"{namespace}:events")
+        if not self.dlq_stream:
+            object.__setattr__(self, "dlq_stream", f"{namespace}:dlq")
+        if not self.consumer_group:
+            object.__setattr__(self, "consumer_group", f"{namespace}_stream_consumers")
+        if not self.key_prefix:
+            object.__setattr__(self, "key_prefix", namespace)
+        if not self.trace_prefix:
+            object.__setattr__(self, "trace_prefix", f"{namespace}:trace")
+        if not self.metrics_prefix:
+            object.__setattr__(self, "metrics_prefix", f"{namespace}:metrics")
+        if not self.idempotence_prefix:
+            object.__setattr__(self, "idempotence_prefix", f"{namespace}:processed")
 
     # Compatibility aliases for settings consumed across services
     @property

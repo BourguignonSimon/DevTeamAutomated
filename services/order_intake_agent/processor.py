@@ -28,7 +28,7 @@ class OrderIntakeAgent:
         self.r = r
         self.settings = settings
         self.registry = load_registry("/app/schemas")
-        self.store = OrderStore(r, storage_dir=settings.storage_dir)
+        self.store = OrderStore(r, prefix=settings.orders_prefix, storage_dir=settings.storage_dir)
         self.processor = ReliableStreamProcessor(
             r,
             settings=settings,

@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 
 import redis
 
 log = logging.getLogger(__name__)
 
-_DEFAULT_PREFIX = "audit:processed"
+_DEFAULT_PREFIX = os.getenv("IDEMPOTENCE_PREFIX", "audit:processed")
 
 
 def _key(prefix: str, consumer_group: str, event_id: str) -> str:

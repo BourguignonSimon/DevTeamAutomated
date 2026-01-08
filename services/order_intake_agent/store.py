@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -8,9 +9,15 @@ import redis
 
 
 class OrderStore:
-    def __init__(self, r: redis.Redis, *, prefix: str = "audit:orders", storage_dir: str = "/storage") -> None:
+    def __init__(
+        self,
+        r: redis.Redis,
+        *,
+        prefix: str | None = None,
+        storage_dir: str = "/storage",
+    ) -> None:
         self.r = r
-        self.prefix = prefix
+        self.prefix = prefix or os.getenv("ORDERS_PREFIX", "audit:orders")
         self.storage_dir = Path(storage_dir)
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 

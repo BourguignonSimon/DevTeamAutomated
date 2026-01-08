@@ -2,6 +2,8 @@
 
 This guide explains how to run the Audit Flash stack locally and how to use the tooling for event-stream and HTTP-based demos.
 
+Audit Flash defaults to the `audit` namespace, but you can reuse the same tooling for any workflow by setting `NAMESPACE` (or overriding `STREAM_NAME`, `DLQ_STREAM`, and `KEY_PREFIX`). When you do, replace `audit:events` in the snippets below with your chosen stream name.
+
 ## Prerequisites
 - **Python 3.11+** (for running services directly)
 - **Docker** and **Docker Compose** (recommended for the full stack)

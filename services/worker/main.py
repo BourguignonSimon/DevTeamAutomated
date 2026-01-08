@@ -99,7 +99,7 @@ def main() -> None:
     setup_logging(settings.log_level)
     reg = load_registry("/app/schemas")
     r = build_redis_client(settings.redis_host, settings.redis_port, settings.redis_db)
-    store = BacklogStore(r)
+    store = BacklogStore(r, prefix=settings.key_prefix)
 
     ensure_consumer_group(r, settings.stream_name, settings.consumer_group)
     log.info("worker listening stream=%s group=%s consumer=%s", settings.stream_name, settings.consumer_group, settings.consumer_name)
