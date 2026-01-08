@@ -1,18 +1,18 @@
-# Audit Flash
+# Agentic Worklfow 
 
-Audit Flash is a general-purpose event-driven workflow toolkit. It ships with an audit-themed default configuration, but every key namespace and stream name can be overridden so the same package works for any workflow domain.
+Agentic Worklfow is a general-purpose event-driven workflow toolkit. It ships with an audit-themed default configuration, but every key namespace and stream name can be overridden so the same package works for any workflow domain. It will be used for any automation/process simplification using agentic AI fully organized.
 
 This package includes:
-- **EPIC 1**: strict JSON contracts (EventEnvelope + payload schemas) and a generic validator consumer.
-- **EPIC 2**: Orchestrator (state machine, backlog generation, dispatch, DoD enforcement).
-- **EPIC 5**: AI agent teams design for audit operations (see `docs/EPIC5_AI_AGENT_TEAMS.md`).
+- strict JSON contracts (EventEnvelope + payload schemas) and a generic validator consumer.
+- Orchestrator (state machine, backlog generation, dispatch, DoD enforcement).
+- AI agent teams design for audit operations (see `docs/EPIC5_AI_AGENT_TEAMS.md`).
 
 For a step-by-step usage walkthrough (Docker Compose, Python entrypoints, HTTP gateway, and order intake flows), see
 `docs/TOOL_USAGE.md`.
 
 ## Quickstart (runtime stack)
 
-Bring up Redis, orchestrator, schema validator, and the four EPIC5 worker agents with Docker Compose:
+Bring up Redis, orchestrator, schema validator, and worker agents with Docker Compose:
 
 ```bash
 docker compose up --build
