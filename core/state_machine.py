@@ -44,15 +44,25 @@ class IllegalTransition(Exception):
 
 
 def is_allowed(from_status: BacklogStatus, to_status: BacklogStatus) -> bool:
+    from_status = _coerce_status(from_status)
+    to_status = _coerce_status(to_status)
     return to_status in _ALLOWED.get(from_status, set())
 
 
+def _coerce_status(status: BacklogStatus | str) -> BacklogStatus:
+    if isinstance(status, BacklogStatus):
+        return status
+    return BacklogStatus(str(status))
+
+
 def assert_transition(
-    from_status: BacklogStatus,
-    to_status: BacklogStatus,
+    from_status: BacklogStatus | str,
+    to_status: BacklogStatus | str,
     *,
     item_id: str | None = None,
 ) -> TransitionResult:
+    from_status = _coerce_status(from_status)
+    to_status = _coerce_status(to_status)
     if is_allowed(from_status, to_status):
         return TransitionResult(True, from_status, to_status, None)
     res = TransitionResult(False, from_status, to_status, f"Illegal transition {from_status} -> {to_status}")

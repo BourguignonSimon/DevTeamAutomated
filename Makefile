@@ -2,7 +2,7 @@ SHELL := /bin/bash
 
 COMPOSE ?= docker compose
 
-.PHONY: up down logs ps build demo demointeractive demo-clarify test
+.PHONY: up down logs ps build demo demo-happy demo-failure demo-clarification demointeractive demo-clarify test
 
 up:
 	$(COMPOSE) up -d --build
@@ -19,8 +19,16 @@ logs:
 ps:
 	$(COMPOSE) ps
 
-demo:
-	$(COMPOSE) exec -T orchestrator sh -lc "python -m demo.seed_events"
+demo: demo-happy demo-failure demo-clarification
+
+demo-happy:
+	./demo/demo_happy_path.sh
+
+demo-failure:
+	./demo/demo_failure_retry_dlq.sh
+
+demo-clarification:
+	./demo/demo_clarification.sh
 
 demointeractive:
 	$(COMPOSE) exec -T orchestrator sh -lc "PYTHONPATH=/app python -m demo.interactive_demo"
