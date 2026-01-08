@@ -24,6 +24,7 @@ class Settings:
     idempotence_ttl_s: int = dedupe_ttl_s
 
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
+    lock_ttl_s: int = int(os.getenv("LOCK_TTL_S", "120"))
     key_prefix: str = os.getenv("KEY_PREFIX", "")
     trace_prefix: str = os.getenv("TRACE_PREFIX", "")
     metrics_prefix: str = os.getenv("METRICS_PREFIX", "")
