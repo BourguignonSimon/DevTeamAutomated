@@ -2,6 +2,12 @@
 
 Agentic Worklfow is a general-purpose event-driven workflow toolkit. It ships with an audit-themed default configuration, but every key namespace and stream name can be overridden so the same package works for any workflow domain. It will be used for any automation/process simplification using agentic AI fully organized.
 
+## About
+
+**Description:** Workflow événementiel et agents IA pour orchestrer des processus, valider des événements, et produire des livrables automatisés via Redis Streams.  
+**Topics:** `python`, `ai-agents`, `redis-streams`, `orchestrator`, `automation`  
+**Website/Demo:** [`docs/TOOL_USAGE.md`](docs/TOOL_USAGE.md) (guide pas-à-pas avec exécution locale et démos HTTP)
+
 This package includes:
 - strict JSON contracts (EventEnvelope + payload schemas) and a generic validator consumer.
 - Orchestrator (state machine, backlog generation, dispatch, DoD enforcement).
