@@ -36,6 +36,18 @@ export NAMESPACE=workflow
 # export KEY_PREFIX=workflow
 ```
 
+### Personalizations for new domains
+
+The default configuration is audit-focused, but the solution is designed to be universal. To demonstrate its flexibility, here are ready-to-use examples:
+
+- **Preset namespaces (examples)**: adapt streams/keys to other sectors.
+  - **Healthcare**: `export NAMESPACE=healthcare`
+  - **Financial services**: `export NAMESPACE=finserv`
+  - **Manufacturing**: `export NAMESPACE=manufacturing`
+- **Additional agent team templates**: extend the toolkit to other workflows.
+  - **DevSecOps Review Team**: vulnerability validation, finding triage, remediation planning.
+  - **CI/CD Release Team**: release governance, pipeline reviews, deployment tracking.
+
 Redis is exposed on **localhost:6380**. Publish an intake event to trigger the flow:
 
 ```bash
