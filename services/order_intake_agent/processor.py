@@ -111,7 +111,7 @@ class OrderIntakeAgent:
                 log.warning("gateway returned not ok for %s: %s", env.get("correlation_id"), data)
                 return None
             return data.get("result_json")
-        except Exception as exc:
+        except Exception:
             log.exception("gateway call failed correlation_id=%s", env.get("correlation_id"))
             return None
 

@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import json
 import os
-import json
-import os
-from pathlib import Path
 from dataclasses import dataclass
-from typing import Dict, Any
+from pathlib import Path
+from typing import Any, Dict
 
 
 def _load_json(path: str) -> Dict[str, Any]:

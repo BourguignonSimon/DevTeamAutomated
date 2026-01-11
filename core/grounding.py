@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import Any, Dict, Iterable, List
 
-from core.failures import MissingDataError
 from core.fact_ledger import FactLedger
+from core.failures import MissingDataError
 
 
 @dataclass

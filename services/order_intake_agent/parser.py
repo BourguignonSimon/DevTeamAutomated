@@ -51,7 +51,7 @@ def parse_excel_order(path: Path) -> ParsedOrder:
 
     lines: List[Dict[str, Any]] = []
     quantities: List[float] = []
-    for idx, row in enumerate(rows, start=1):
+    for _idx, row in enumerate(rows, start=1):
         values = list(row.values())
         sku = str(values[sku_idx]).strip() if sku_idx is not None and values[sku_idx] is not None else ""
         qty_raw = values[qty_idx] if qty_idx is not None and qty_idx < len(values) else None

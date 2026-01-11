@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-import json
 import logging
 import time
-import uuid
 from typing import Any, Dict, List
 
-import fastapi
 from fastapi import FastAPI, HTTPException
 
 from core.schema_registry import load_registry
@@ -63,7 +60,6 @@ def create_app(settings: GatewaySettings | None = None) -> FastAPI:
 
     @app.post("/v1/extract/order", response_model=ExtractionResponse)
     def extract(req: ExtractionRequest) -> ExtractionResponse:
-        start = time.time()
         provider_order: List[str] = req.provider_preference or list(settings.provider_order)
         provider_order = [p for p in provider_order if p]
         used_provider: str | None = None

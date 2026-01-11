@@ -3,26 +3,25 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Dict
 
 import redis
+
 try:  # pragma: no cover - prefer real FastAPI when available
-    from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
+    from fastapi import FastAPI, File, HTTPException, UploadFile, status
     from fastapi.params import Form
     from fastapi.responses import JSONResponse
     from fastapi.testclient import TestClient
 except Exception:  # pragma: no cover - fall back to lightweight stub for offline environments
     from services.order_intake_agent.fastapi_compat import (  # type: ignore
-        Depends,
         FastAPI,
         File,
+        Form,
         HTTPException,
         JSONResponse,
         TestClient,
         UploadFile,
         status,
-        Form,
     )
 
 from core.event_utils import envelope, now_iso
