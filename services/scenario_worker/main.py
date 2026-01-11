@@ -4,7 +4,13 @@ import json
 import logging
 import uuid
 
-from core.agent_workers import compute_confidence, compute_costs, compute_friction, compute_scenario, compute_time_metrics
+from core.agent_workers import (
+    compute_confidence,
+    compute_costs,
+    compute_friction,
+    compute_scenario,
+    compute_time_metrics,
+)
 from core.config import Settings
 from core.dlq import publish_dlq
 from core.event_utils import envelope, now_iso

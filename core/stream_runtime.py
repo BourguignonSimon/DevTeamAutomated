@@ -10,10 +10,9 @@ import redis
 
 from core.config import Settings
 from core.dlq import publish_dlq
-from core.event_utils import now_iso
 from core.idempotence import is_processed, mark_processed
 from core.redis_streams import ensure_consumer_group
-from core.schema_registry import load_registry, SchemaRegistry
+from core.schema_registry import SchemaRegistry, load_registry
 from core.schema_validate import validate_envelope, validate_payload
 
 log = logging.getLogger(__name__)

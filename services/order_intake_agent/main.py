@@ -4,8 +4,8 @@ import threading
 
 import uvicorn
 
-from core.redis_streams import build_redis_client
 from core.logging import setup_logging
+from core.redis_streams import build_redis_client
 from services.order_intake_agent.app import create_app
 from services.order_intake_agent.processor import OrderIntakeAgent
 from services.order_intake_agent.settings import OrderIntakeSettings

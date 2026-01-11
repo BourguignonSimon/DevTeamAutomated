@@ -4,11 +4,11 @@ import json
 import logging
 
 from core.config import Settings
+from core.dlq import publish_dlq
 from core.logging import setup_logging
-from core.redis_streams import build_redis_client, ensure_consumer_group, read_group, ack
+from core.redis_streams import ack, build_redis_client, ensure_consumer_group, read_group
 from core.schema_registry import load_registry
 from core.schema_validate import validate_envelope, validate_payload
-from core.dlq import publish_dlq
 
 log = logging.getLogger("stream_consumer")
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import string
 from collections import defaultdict
-from typing import Dict, List, Tuple, Any
+from typing import Any, Dict, List, Tuple
 
 
 def normalize_text(text: str) -> str:

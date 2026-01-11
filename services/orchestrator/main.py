@@ -5,23 +5,21 @@ import logging
 import os
 import time
 import uuid
-from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
+from core.backlog_store import BacklogStore
 from core.config import Settings
 from core.dlq import publish_dlq
 from core.failures import Failure, FailureCategory
-from core.grounding import GroundingEngine
 from core.idempotence import mark_if_new
+from core.metrics import MetricsRecorder
+from core.question_store import QuestionStore
 from core.redis_streams import ack, build_redis_client, ensure_consumer_group, read_group
 from core.schema_registry import load_registry
 from core.schema_validate import validate_envelope, validate_payload
 from core.state_machine import BacklogStatus, assert_transition
-from core.backlog_store import BacklogStore
-from core.question_store import QuestionStore
 from core.trace import TraceLogger, TraceRecord
 from core.validators import DefinitionOfDoneRegistry, ValidationResult, default_validator
-from core.metrics import MetricsRecorder
 
 log = logging.getLogger("orchestrator")
 trace_logger: TraceLogger | None = None
@@ -115,22 +113,6 @@ def _apply_status_safe(store: BacklogStore, project_id: str, item_id: str, new_s
 
 
 def _dlq(r, reason: str, original_fields: Any, schema_id: Optional[str] = None) -> None:
-    # Keep required DLQ fields: event_id, event_type, reason, original_event (tests expect this)
-    original_event = None
-    if isinstance(original_fields, dict) and "event" in original_fields:
-        try:
-            original_event = json.loads(original_fields["event"])
-        except Exception:
-            original_event = original_fields["event"]
-    else:
-        original_event = original_fields
-
-    event_id = None
-    event_type = None
-    if isinstance(original_event, dict):
-        event_id = original_event.get("event_id")
-        event_type = original_event.get("event_type")
-
     publish_dlq(
         r,
         Settings().dlq_stream,  # safe: reads env defaults

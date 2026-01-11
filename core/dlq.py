@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 import time
 import traceback
-from typing import Dict, Any, Optional
-import redis
+from typing import Any, Dict, Optional
 
+import redis
 
 _DEF_MAX_TRACE = 4000
 

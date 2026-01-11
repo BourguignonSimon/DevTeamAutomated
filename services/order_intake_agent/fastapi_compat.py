@@ -84,7 +84,7 @@ class TestClient:
                 continue
             params: Dict[str, Any] = {}
             matched = True
-            for r, p in zip(route_parts, path_parts):
+            for r, p in zip(route_parts, path_parts, strict=True):
                 if r.startswith("{") and r.endswith("}"):
                     params[r.strip("{} ")] = p
                 elif r != p:

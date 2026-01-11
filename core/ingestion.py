@@ -175,7 +175,7 @@ def load_excel(path: Path, sheet_name: Optional[str] = None) -> List[MutableMapp
     try:
         header_row = next(header_iter)
     except StopIteration:
-        raise ValueError("Excel sheet is empty (missing header row)")
+        raise ValueError("Excel sheet is empty (missing header row)") from None
 
     if all(h is None or str(h).strip() == "" for h in header_row):
         raise ValueError("Excel sheet is empty (missing header row)")
