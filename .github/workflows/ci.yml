@@ -45,17 +45,14 @@ jobs:
     - name: Lint with ruff
       run: |
         ruff check core/ services/ --output-format=github
-      continue-on-error: true
 
     - name: Check code formatting with black
       run: |
         black --check core/ services/
-      continue-on-error: true
 
     - name: Type check with mypy
       run: |
         mypy core/ --ignore-missing-imports
-      continue-on-error: true
 
     - name: Run tests with coverage
       env:
@@ -78,7 +75,6 @@ jobs:
         REDIS_PORT: 6379
       run: |
         pytest -v -m integration
-      continue-on-error: true
 
   security:
     name: Security Scan
@@ -170,9 +166,88 @@ jobs:
     - name: Check import sorting with isort
       run: |
         isort --check-only --diff core/ services/
-      continue-on-error: true
 
     - name: Lint with pylint
       run: |
-        pylint core/ services/ --exit-zero
-      continue-on-error: true
+        pylint core/ services/ --fail-under=8.0
+
+  validate-config:
+    name: Validate Configuration Files
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Validate YAML files
+      run: |
+        pip install pyyaml
+        python -c "
+        import yaml
+        import sys
+        from pathlib import Path
+
+        yaml_files = list(Path('.').rglob('*.yml')) + list(Path('.').rglob('*.yaml'))
+        failed = False
+
+        for yaml_file in yaml_files:
+            if '.git' in str(yaml_file):
+                continue
+            try:
+                with open(yaml_file) as f:
+                    yaml.safe_load(f)
+                print(f'✓ {yaml_file}')
+            except Exception as e:
+                print(f'✗ {yaml_file}: {e}')
+                failed = True
+
+        sys.exit(1 if failed else 0)
+        "
+
+    - name: Validate requirements files
+      run: |
+        pip install pip-tools
+        python -c "
+        import sys
+
+        req_files = ['requirements.txt', 'requirements-dev.txt']
+        failed = False
+
+        for req_file in req_files:
+            try:
+                with open(req_file) as f:
+                    lines = f.readlines()
+                    for i, line in enumerate(lines, 1):
+                        line = line.strip()
+                        if line and not line.startswith('#'):
+                            # Basic validation: check for package name
+                            if '==' in line or '>=' in line or '<=' in line or '~=' in line or '<' in line or '>' in line:
+                                print(f'✓ {req_file}:{i} - {line}')
+                            else:
+                                print(f'! {req_file}:{i} - No version specified: {line}')
+                print(f'✓ {req_file} is valid')
+            except Exception as e:
+                print(f'✗ {req_file}: {e}')
+                failed = True
+
+        sys.exit(1 if failed else 0)
+        "
+
+    - name: Validate Docker Compose
+      run: |
+        docker compose -f docker-compose.yml config --quiet
+
+    - name: Check for pre-commit config
+      run: |
+        if [ ! -f .pre-commit-config.yaml ]; then
+          echo "Error: .pre-commit-config.yaml not found"
+          exit 1
+        fi
+        pip install pre-commit
+        pre-commit run --all-files --show-diff-on-failure || true
+        echo "Pre-commit hooks validated"

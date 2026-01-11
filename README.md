@@ -210,3 +210,103 @@ pytest -q tests/test_reliable_runtime.py
 ```
 
 Integration tests that exercise the real Compose stack are tagged `integration` and will be skipped automatically unless Docker is available.
+
+## Development & Validation
+
+### Setting Up Development Environment
+
+1. **Install Python dependencies:**
+
+   ```bash
+   pip install -r requirements.txt
+   pip install -r requirements-dev.txt
+   ```
+
+2. **Install pre-commit hooks** (recommended for automatic code quality checks):
+
+   ```bash
+   make pre-commit-install
+   ```
+
+   This will automatically run linting, formatting, and validation checks before each commit.
+
+### Code Quality & Validation
+
+The project uses comprehensive validation to ensure code quality:
+
+#### **Automated Checks (run locally before pushing):**
+
+- **Format code:**
+  ```bash
+  make format
+  ```
+  Auto-formats code with `black` and `isort`, and fixes common issues with `ruff`.
+
+- **Run linters:**
+  ```bash
+  make lint
+  ```
+  Runs `ruff`, `isort`, and `pylint` to check code quality (fails on issues).
+
+- **Type checking:**
+  ```bash
+  make type-check
+  ```
+  Runs `mypy` to check type annotations.
+
+- **Run all validations:**
+  ```bash
+  make validate
+  ```
+  Runs formatting, linting, and type checking in sequence.
+
+- **Run all validations including tests:**
+  ```bash
+  make validate-all
+  ```
+  Runs linting, type checking, and full test suite.
+
+- **Run pre-commit hooks manually:**
+  ```bash
+  make pre-commit
+  ```
+  Runs all pre-commit hooks on all files.
+
+#### **Configuration Files:**
+
+- `.pre-commit-config.yaml` - Pre-commit hooks configuration
+- `pyproject.toml` - Python project configuration, tool settings (black, ruff, mypy, coverage)
+- `pytest.ini` - Test configuration with 70% coverage requirement
+- `.github/workflows/ci.yml` - CI/CD pipeline configuration
+
+### GitHub CI/CD Pipeline
+
+All pull requests and pushes to `main`, `develop`, and `claude/**` branches trigger automatic validation:
+
+1. **Code Quality Job:**
+   - Linting (ruff, isort, pylint)
+   - Code formatting check (black)
+   - Type checking (mypy)
+
+2. **Test Job:**
+   - Unit tests with pytest
+   - Integration tests with Redis
+   - Coverage reporting (minimum 70%)
+   - Codecov integration
+
+3. **Security Job:**
+   - Python dependency vulnerability scanning (safety)
+   - Filesystem security scan (Trivy)
+   - Results uploaded to GitHub Security tab
+
+4. **Docker Job:**
+   - Build validation for all service images
+   - Multi-arch support preparation
+
+5. **Configuration Validation Job:**
+   - YAML file validation
+   - Requirements file validation
+   - Docker Compose validation
+   - Pre-commit hooks check
+
+**Important:** All validation checks must pass for the build to succeed. The CI pipeline enforces strict code quality standards.
