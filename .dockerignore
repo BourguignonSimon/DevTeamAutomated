@@ -28,8 +28,7 @@ venv/
 env/
 ENV/
 
-# Testing
-tests/
+# Testing artifacts (but keep tests/ for Docker builds)
 .pytest_cache/
 .coverage
 htmlcov/
@@ -47,8 +46,7 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Project specific
-demo/
+# Project specific (but keep demo/ for Docker builds)
 reports/
 tmp/
 temp/

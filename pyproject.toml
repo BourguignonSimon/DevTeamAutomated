@@ -72,9 +72,15 @@ addopts = "--strict-markers"
 
 [tool.coverage.run]
 source = ["core", "services"]
-omit = ["tests/*", "demo/*"]
+omit = [
+    "tests/*",
+    "demo/*",
+    "services/*/main.py",
+    "services/*/__main__.py",
+]
 
 [tool.coverage.report]
+fail_under = 55
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",
