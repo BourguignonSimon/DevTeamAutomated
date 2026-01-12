@@ -8,7 +8,7 @@ from core.config import Settings
 
 @dataclass(frozen=True)
 class OrderIntakeSettings(Settings):
-    storage_dir: str = os.getenv("STORAGE_DIR", "/storage")
+    storage_dir: str = os.getenv("STORAGE_DIR", "/tmp/storage")
     artifact_ttl_s: int = int(os.getenv("ARTIFACT_TTL_S", "604800"))
     orders_prefix: str = os.getenv("ORDERS_PREFIX", "")
     validation_set_key: str = os.getenv("VALIDATION_SET_KEY", "")

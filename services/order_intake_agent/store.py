@@ -14,7 +14,7 @@ class OrderStore:
         r: redis.Redis,
         *,
         prefix: str | None = None,
-        storage_dir: str = "/storage",
+        storage_dir: str = "/tmp/storage",
     ) -> None:
         self.r = r
         self.prefix = prefix or os.getenv("ORDERS_PREFIX", "audit:orders")
