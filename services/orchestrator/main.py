@@ -112,7 +112,20 @@ def _apply_status_safe(store: BacklogStore, project_id: str, item_id: str, new_s
         return False, str(e)
 
 
-def _dlq(r, reason: str, original_fields: Any, schema_id: Optional[str] = None) -> None:
+def _dlq(r, reason: str, original_fields: Any, schema_id: Optional[str] = None, original_event: Optional[Dict[str, Any]] = None) -> None:
+    # Ensure original_fields is a dict with string values (Redis stream format)
+    if not isinstance(original_fields, dict):
+        original_fields = {}
+    else:
+        # Ensure all values are strings (Redis stream format requirement)
+        original_fields = {k: str(v) if not isinstance(v, str) else v for k, v in original_fields.items()}
+    
+    # If we have a decoded event but original_fields doesn't have 'event', add it
+    # This preserves event metadata even when fields don't contain the event properly
+    if original_event and "event" not in original_fields:
+        original_fields = original_fields.copy()
+        original_fields["event"] = json.dumps(original_event)
+    
     publish_dlq(
         r,
         Settings().dlq_stream,  # safe: reads env defaults
@@ -337,7 +350,8 @@ def process_message(
 
     except Exception as e:
         # Business failures are not silent: DLQ (keeps pipeline robust)
-        _dlq(r, f"handler_error: {e}", fields)
+        # Pass the decoded env if available to preserve event metadata
+        _dlq(r, f"handler_error: {e}", fields, original_event=env if 'env' in locals() else None)
 
     # Always ACK to prevent infinite pending
     ack(r, settings.stream_name, group, msg_id)

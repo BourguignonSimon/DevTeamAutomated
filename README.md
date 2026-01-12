@@ -1,6 +1,6 @@
-# Agentic Worklfow 
+# Agentic Workflow 
 
-Agentic Worklfow is a general-purpose event-driven workflow toolkit. It ships with an audit-themed default configuration, but every key namespace and stream name can be overridden so the same package works for any workflow domain. It will be used for any automation/process simplification using agentic AI fully organized.
+Agentic Workflow is a general-purpose event-driven workflow toolkit. It ships with an audit-themed default configuration, but every key namespace and stream name can be overridden so the same package works for any workflow domain. It will be used for any automation/process simplification using agentic AI fully organized.
 
 ## About
 
