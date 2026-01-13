@@ -43,7 +43,7 @@ def test_pipeline_dispatches_and_completes(tmp_path):
         env = envelope(
             event_type="PROJECT.INITIAL_REQUEST_RECEIVED",
             source="tests",
-            payload={"project_id": project_id, "request_text": "full audit"},
+            payload={"project_id": project_id, "request_text": "perform full audit of all systems"},
             correlation_id=str(uuid.uuid4()),
             causation_id=None,
         )
