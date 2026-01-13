@@ -162,7 +162,13 @@ def main() -> None:
     r = build_redis_client(settings.redis_host, settings.redis_port, settings.redis_db)
 
     ensure_consumer_group(r, settings.stream_name, settings.consumer_group)
-    log.info("%s listening stream=%s group=%s consumer=%s", AGENT_NAME, settings.stream_name, settings.consumer_group, settings.consumer_name)
+    log.info(
+        "%s listening stream=%s group=%s consumer=%s",
+        AGENT_NAME,
+        settings.stream_name,
+        settings.consumer_group,
+        settings.consumer_name,
+    )
 
     while True:
         msgs = read_group(

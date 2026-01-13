@@ -187,7 +187,12 @@ class OrderIntakeAgent:
         base_draft = {
             "order_id": order_id,
             "po_number": None,
-            "customer": {"name": payload.get("customer_hint"), "vat": None, "address": None, "email": payload.get("from_email")},
+            "customer": {
+                "name": payload.get("customer_hint"),
+                "vat": None,
+                "address": None,
+                "email": payload.get("from_email"),
+            },
             "delivery": delivery,
             "currency": "EUR",
             "lines": parsed["lines"],
@@ -228,7 +233,9 @@ class OrderIntakeAgent:
 
         self._persist_and_emit(env, order_draft, missing_fields, anomalies, reason)
 
-    def _export_and_publish(self, order_id: str, order_draft: Dict[str, Any], email_draft: Dict[str, str], env: Dict[str, Any]) -> None:
+    def _export_and_publish(
+        self, order_id: str, order_draft: Dict[str, Any], email_draft: Dict[str, str], env: Dict[str, Any]
+    ) -> None:
         lock = acquire_lock(self.r, f"order:{order_id}:export", ttl_ms=self.settings.export_lock_ttl_ms)
         if not lock:
             log.info("export lock busy for %s", order_id)
@@ -239,20 +246,26 @@ class OrderIntakeAgent:
                 writer = csv.writer(f)
                 writer.writerow(["line_no", "sku", "description", "qty", "uom", "unit_price"])
                 for line in order_draft.get("lines", []):
-                    writer.writerow([
-                        line.get("line_no"),
-                        line.get("sku"),
-                        line.get("description"),
-                        line.get("qty"),
-                        line.get("uom"),
-                        line.get("unit_price"),
-                    ])
+                    writer.writerow(
+                        [
+                            line.get("line_no"),
+                            line.get("sku"),
+                            line.get("description"),
+                            line.get("qty"),
+                            line.get("uom"),
+                            line.get("unit_price"),
+                        ]
+                    )
             artifact_id = str(uuid.uuid4())
             export_meta = {"artifact_id": artifact_id, "path": str(export_path), "format": "csv"}
             self.store.record_export(order_id, export_meta)
             export_env = envelope(
                 event_type="ORDER.EXPORT_READY",
-                payload={"order_id": order_id, "export": {"artifact_id": artifact_id, "format": "csv"}, "email_draft": email_draft},
+                payload={
+                    "order_id": order_id,
+                    "export": {"artifact_id": artifact_id, "format": "csv"},
+                    "email_draft": email_draft,
+                },
                 source=self.settings.service_name,
                 correlation_id=env.get("correlation_id"),
                 causation_id=env.get("event_id"),
@@ -290,7 +303,9 @@ class OrderIntakeAgent:
         draft = payload.get("final_order_draft") or self.store.get_order_draft(order_id)
         if not draft:
             raise ValueError("missing draft for validated order")
-        email_draft = self._build_email_draft(draft.get("customer", {}).get("email") or payload.get("validated_by", ""), [])
+        email_draft = self._build_email_draft(
+            draft.get("customer", {}).get("email") or payload.get("validated_by", ""), []
+        )
         self.store.remove_pending_validation(self.settings.validation_set_key, order_id)
         self._export_and_publish(order_id, draft, email_draft, env)
 

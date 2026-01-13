@@ -192,4 +192,3 @@ class AgentManager:
                     return False
         self.journal.clear()
         return True
-

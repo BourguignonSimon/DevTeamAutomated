@@ -8,7 +8,9 @@ from core.ingestion import load_excel
 
 
 class ParsedOrder:
-    def __init__(self, lines: List[Dict[str, Any]], missing_fields: List[Dict[str, str]], anomalies: List[Dict[str, Any]]):
+    def __init__(
+        self, lines: List[Dict[str, Any]], missing_fields: List[Dict[str, str]], anomalies: List[Dict[str, Any]]
+    ):
         self.lines = lines
         self.missing_fields = missing_fields
         self.anomalies = anomalies

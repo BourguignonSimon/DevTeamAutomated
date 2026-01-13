@@ -41,11 +41,7 @@ def main() -> int:
         {"event": json.dumps(envelope)},
     )
 
-    print(
-        f"Seeded event_type={envelope['event_type']} "
-        f"event_id={envelope['event_id']} "
-        f"redis_id={msg_id}"
-    )
+    print(f"Seeded event_type={envelope['event_type']} " f"event_id={envelope['event_id']} " f"redis_id={msg_id}")
     return 0
 
 

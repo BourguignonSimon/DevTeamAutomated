@@ -157,7 +157,9 @@ def _process_message(r, reg, settings: Settings, msg_id: str, fields: dict) -> N
             return
 
         if not requirements and not rows:
-            _emit_clarification(r, settings, env, project_id, backlog_item_id, ["requirements"], "missing requirements input")
+            _emit_clarification(
+                r, settings, env, project_id, backlog_item_id, ["requirements"], "missing requirements input"
+            )
             return
 
         try:

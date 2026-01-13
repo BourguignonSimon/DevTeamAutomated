@@ -24,7 +24,10 @@ def _wait_for(predicate, timeout=30, interval=1):
 
 
 def _compose_up():
-    subprocess.run(["docker", "compose", "-f", str(COMPOSE_FILE), "up", "-d", "redis", "orchestrator", "validator", "worker"], check=True)
+    subprocess.run(
+        ["docker", "compose", "-f", str(COMPOSE_FILE), "up", "-d", "redis", "orchestrator", "validator", "worker"],
+        check=True,
+    )
 
 
 def _compose_down():
@@ -57,7 +60,10 @@ def test_pipeline_dispatches_and_completes(tmp_path):
                 if not env_raw:
                     continue
                 data = json.loads(env_raw)
-                if data.get("event_type") == "WORK.ITEM_COMPLETED" and data.get("payload", {}).get("project_id") == project_id:
+                if (
+                    data.get("event_type") == "WORK.ITEM_COMPLETED"
+                    and data.get("payload", {}).get("project_id") == project_id
+                ):
                     return True
             return False
 

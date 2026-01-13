@@ -110,7 +110,12 @@ def main() -> None:
     store = BacklogStore(r, prefix=settings.key_prefix)
 
     ensure_consumer_group(r, settings.stream_name, settings.consumer_group)
-    log.info("worker listening stream=%s group=%s consumer=%s", settings.stream_name, settings.consumer_group, settings.consumer_name)
+    log.info(
+        "worker listening stream=%s group=%s consumer=%s",
+        settings.stream_name,
+        settings.consumer_group,
+        settings.consumer_name,
+    )
 
     while True:
         msgs = read_group(

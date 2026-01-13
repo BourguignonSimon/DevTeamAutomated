@@ -28,12 +28,22 @@ def test_human_approval_flags(redis_client):
     store = BacklogStore(redis_client)
     qstore = QuestionStore(redis_client)
     from core.redis_streams import ensure_consumer_group
+
     ensure_consumer_group(redis_client, settings.stream_name, settings.consumer_group)
 
-    pending_env = _env("HUMAN.APPROVAL_REQUESTED", {"project_id": str(uuid.uuid4()), "backlog_item_id": "b1", "reason": "policy"})
-    process_message(redis_client, reg, store, qstore, settings, settings.consumer_group, "1-0", {"event": json.dumps(pending_env)})
+    pending_env = _env(
+        "HUMAN.APPROVAL_REQUESTED", {"project_id": str(uuid.uuid4()), "backlog_item_id": "b1", "reason": "policy"}
+    )
+    process_message(
+        redis_client, reg, store, qstore, settings, settings.consumer_group, "1-0", {"event": json.dumps(pending_env)}
+    )
     assert redis_client.exists(f"approval:pending:{pending_env['payload']['project_id']}:b1")
 
-    submitted_env = _env("HUMAN.APPROVAL_SUBMITTED", {"project_id": pending_env["payload"]["project_id"], "backlog_item_id": "b1", "approved": True})
-    process_message(redis_client, reg, store, qstore, settings, settings.consumer_group, "2-0", {"event": json.dumps(submitted_env)})
+    submitted_env = _env(
+        "HUMAN.APPROVAL_SUBMITTED",
+        {"project_id": pending_env["payload"]["project_id"], "backlog_item_id": "b1", "approved": True},
+    )
+    process_message(
+        redis_client, reg, store, qstore, settings, settings.consumer_group, "2-0", {"event": json.dumps(submitted_env)}
+    )
     assert not redis_client.exists(f"approval:pending:{pending_env['payload']['project_id']}:b1")

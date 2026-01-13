@@ -65,7 +65,12 @@ def assert_transition(
     to_status = _coerce_status(to_status)
     if is_allowed(from_status, to_status):
         return TransitionResult(True, from_status, to_status, None)
-    exc = IllegalTransition(item_id=item_id, from_state=from_status, to_state=to_status, allowed_transitions=_ALLOWED.get(from_status, set()))
+    exc = IllegalTransition(
+        item_id=item_id,
+        from_state=from_status,
+        to_state=to_status,
+        allowed_transitions=_ALLOWED.get(from_status, set()),
+    )
     log.error(
         "Illegal transition",
         extra={

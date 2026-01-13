@@ -59,7 +59,9 @@ def test_index_by_status_updates(redis_client):
 
     # take one READY, move to IN_PROGRESS via WORK.ITEM_STARTED after dispatch
     # We force dispatch using orchestrator helper to avoid relying on timing
-    _dispatch_ready_tasks(redis_client, store, project_id, correlation_id=str(uuid.uuid4()), causation_id=str(uuid.uuid4()))
+    _dispatch_ready_tasks(
+        redis_client, store, project_id, correlation_id=str(uuid.uuid4()), causation_id=str(uuid.uuid4())
+    )
     assert wait_for(lambda: _count_event_type(redis_client, "WORK.ITEM_DISPATCHED") > 0, timeout_s=3.0)
 
     dispatched = None
@@ -130,12 +132,16 @@ def test_locking_concurrent_dispatch_only_one_event(redis_client):
 
     # call dispatch twice concurrently
     def run():
-        _dispatch_ready_tasks(redis_client, store, project_id, correlation_id=str(uuid.uuid4()), causation_id=str(uuid.uuid4()))
+        _dispatch_ready_tasks(
+            redis_client, store, project_id, correlation_id=str(uuid.uuid4()), causation_id=str(uuid.uuid4())
+        )
 
     t1 = threading.Thread(target=run)
     t2 = threading.Thread(target=run)
-    t1.start(); t2.start()
-    t1.join(); t2.join()
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
 
     assert wait_for(lambda: _count_event_type(redis_client, "WORK.ITEM_DISPATCHED") >= 1, timeout_s=3.0)
     # only one dispatched for this project (lock)

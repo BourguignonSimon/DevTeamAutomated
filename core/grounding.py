@@ -59,5 +59,7 @@ class GroundingEngine:
                 )
             )
 
-        self.ledger.record(project_id, backlog_item_id, [f.to_dict() for f in facts], coefficients={"count": len(facts)})
+        self.ledger.record(
+            project_id, backlog_item_id, [f.to_dict() for f in facts], coefficients={"count": len(facts)}
+        )
         return Facts(facts)

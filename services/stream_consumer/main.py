@@ -37,7 +37,15 @@ def main() -> None:
     log.info("listening stream=%s group=%s", settings.stream_name, settings.consumer_group)
 
     while True:
-        msgs = read_group(r, stream=settings.stream_name, group=settings.consumer_group, consumer=settings.consumer_name, block_ms=settings.xread_block_ms, reclaim_min_idle_ms=settings.pending_reclaim_min_idle_ms, reclaim_count=settings.pending_reclaim_count)
+        msgs = read_group(
+            r,
+            stream=settings.stream_name,
+            group=settings.consumer_group,
+            consumer=settings.consumer_name,
+            block_ms=settings.xread_block_ms,
+            reclaim_min_idle_ms=settings.pending_reclaim_min_idle_ms,
+            reclaim_count=settings.pending_reclaim_count,
+        )
         if not msgs:
             continue
         for msg_id, fields in msgs:

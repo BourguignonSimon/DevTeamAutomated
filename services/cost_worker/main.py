@@ -30,7 +30,9 @@ def _emit_started(r, settings: Settings, env: dict, project_id: str, backlog_ite
     r.xadd(settings.stream_name, {"event": json.dumps(started_env)})
 
 
-def _emit_clarification(r, settings: Settings, env: dict, project_id: str, backlog_item_id: str, missing: list[str]) -> None:
+def _emit_clarification(
+    r, settings: Settings, env: dict, project_id: str, backlog_item_id: str, missing: list[str]
+) -> None:
     clar_env = envelope(
         event_type="CLARIFICATION.NEEDED",
         payload={
@@ -171,7 +173,13 @@ def main() -> None:
     r = build_redis_client(settings.redis_host, settings.redis_port, settings.redis_db)
 
     ensure_consumer_group(r, settings.stream_name, settings.consumer_group)
-    log.info("%s listening stream=%s group=%s consumer=%s", AGENT_NAME, settings.stream_name, settings.consumer_group, settings.consumer_name)
+    log.info(
+        "%s listening stream=%s group=%s consumer=%s",
+        AGENT_NAME,
+        settings.stream_name,
+        settings.consumer_group,
+        settings.consumer_name,
+    )
 
     while True:
         msgs = read_group(

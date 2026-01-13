@@ -17,7 +17,13 @@ class FactLedger:
         self.base_dir = Path(resolved_dir)
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
-    def record(self, project_id: str, backlog_item_id: str, facts: Iterable[Dict[str, Any]], coefficients: Dict[str, Any] | None = None) -> Path:
+    def record(
+        self,
+        project_id: str,
+        backlog_item_id: str,
+        facts: Iterable[Dict[str, Any]],
+        coefficients: Dict[str, Any] | None = None,
+    ) -> Path:
         entry = {
             "project_id": project_id,
             "backlog_item_id": backlog_item_id,

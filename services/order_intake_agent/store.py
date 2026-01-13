@@ -98,7 +98,9 @@ class OrderStore:
         self.r.srem(validation_set_key, order_id)
 
     def list_pending_validation(self, validation_set_key: str) -> List[str]:
-        return sorted([oid if isinstance(oid, str) else oid.decode("utf-8") for oid in self.r.smembers(validation_set_key)])
+        return sorted(
+            [oid if isinstance(oid, str) else oid.decode("utf-8") for oid in self.r.smembers(validation_set_key)]
+        )
 
     def artifact_path(self, order_id: str, artifact_id: str, filename: str) -> Path:
         base = self.storage_dir / "artifacts" / order_id

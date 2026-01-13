@@ -16,9 +16,7 @@ from core.ingestion import (
 def test_detect_and_normalize_csv(tmp_path: Path):
     csv_path = tmp_path / "tasks.csv"
     csv_path.write_text(
-        "Task Name,Category label,Time (h)\n"
-        " Nettoyage   données ,Data Cleanup,1.5h\n"
-        "Rapport final , , \n",
+        "Task Name,Category label,Time (h)\n" " Nettoyage   données ,Data Cleanup,1.5h\n" "Rapport final , , \n",
         encoding="utf-8",
     )
 

@@ -3,6 +3,7 @@
 This avoids needing direct Redis commands for quick demos. Start the server
 while docker-compose is running, then POST JSON payloads to publish events.
 """
+
 from __future__ import annotations
 
 import json

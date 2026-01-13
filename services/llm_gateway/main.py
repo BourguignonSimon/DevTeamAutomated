@@ -54,6 +54,7 @@ def create_app(settings: GatewaySettings | None = None) -> FastAPI:
         if not schema:
             return False
         from jsonschema import Draft202012Validator, RefResolver
+
         validator = Draft202012Validator(schema, resolver=RefResolver.from_schema(schema, store=registry.objects_by_id))
         errors = list(validator.iter_errors(result_json))
         return not errors

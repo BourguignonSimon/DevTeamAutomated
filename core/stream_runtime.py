@@ -59,7 +59,9 @@ class ReliableStreamProcessor:
             last_seen_at=float(data.get("last_seen_at", now)),
         )
 
-    def _send_dlq(self, reason: str, fields: Dict[str, str], attempts: AttemptMeta | None = None, error: Exception | None = None):
+    def _send_dlq(
+        self, reason: str, fields: Dict[str, str], attempts: AttemptMeta | None = None, error: Exception | None = None
+    ):
         publish_dlq(
             self.r,
             self.settings.dlq_stream,

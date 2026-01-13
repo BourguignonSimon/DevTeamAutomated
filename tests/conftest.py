@@ -291,7 +291,9 @@ class InMemoryRedis:
             "original_event": original_event,
             "original_fields": fields,
         }
-        self.streams.setdefault("audit:dlq", []).append((f"{len(self.streams.get('audit:dlq', []))+1}-0", {"dlq": json.dumps(doc)}))
+        self.streams.setdefault("audit:dlq", []).append(
+            (f"{len(self.streams.get('audit:dlq', []))+1}-0", {"dlq": json.dumps(doc)})
+        )
 
     def xlen(self, name):
         return len(self.streams.get(name, []))

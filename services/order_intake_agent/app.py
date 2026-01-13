@@ -64,9 +64,16 @@ def create_app(deps: Dependencies | None = None) -> FastAPI:
             target = deps.store.artifact_path(order_id, artifact_id, uploaded.filename)
             content = await uploaded.read()
             target.write_bytes(content)
-            meta = {"artifact_id": artifact_id, "filename": uploaded.filename, "mime_type": uploaded.content_type, "path": str(target)}
+            meta = {
+                "artifact_id": artifact_id,
+                "filename": uploaded.filename,
+                "mime_type": uploaded.content_type,
+                "path": str(target),
+            }
             deps.store.save_artifact_metadata(artifact_id, meta, deps.settings.artifact_ttl_s)
-            attachments.append({"artifact_id": artifact_id, "filename": uploaded.filename, "mime_type": uploaded.content_type})
+            attachments.append(
+                {"artifact_id": artifact_id, "filename": uploaded.filename, "mime_type": uploaded.content_type}
+            )
 
         env = envelope(
             event_type="ORDER.INBOX_RECEIVED",

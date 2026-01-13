@@ -15,6 +15,7 @@ class ValidationResult:
     error: Optional[str] = None
     schema_id: Optional[str] = None
 
+
 def _build_registry(store: dict | None) -> Registry | None:
     if not store:
         return None

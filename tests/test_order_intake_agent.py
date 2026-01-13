@@ -66,7 +66,9 @@ def gateway_payload_success():
                 "customer": {"name": "", "vat": None, "address": None, "email": "user@example.com"},
                 "delivery": {"address": "123 street", "date": "2024-01-02", "incoterm": None},
                 "currency": "EUR",
-                "lines": [{"line_no": 1, "sku": "SKU-1", "description": "Widget", "qty": 5, "uom": "ea", "unit_price": 1.0}],
+                "lines": [
+                    {"line_no": 1, "sku": "SKU-1", "description": "Widget", "qty": 5, "uom": "ea", "unit_price": 1.0}
+                ],
                 "totals": {"subtotal": None, "tax": None, "total": None},
             },
             "missing_fields": [],
@@ -96,8 +98,19 @@ def test_human_approval_required(redis_client, order_settings, tmp_path, patch_g
 
     resp = client.post(
         "/orders/inbox",
-        files={"files": ("order.xlsx", excel.read_bytes(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
-        data={"from_email": "user@example.com", "subject": "New order", "delivery_address": "123 street", "delivery_date": "2024-01-02"},
+        files={
+            "files": (
+                "order.xlsx",
+                excel.read_bytes(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+        data={
+            "from_email": "user@example.com",
+            "subject": "New order",
+            "delivery_address": "123 street",
+            "delivery_date": "2024-01-02",
+        },
     )
     assert resp.status_code == 200
     order_id = resp.json()["order_id"]
@@ -136,7 +149,13 @@ def test_gateway_outage_triggers_manual_review(redis_client, order_settings, tmp
 
     resp = client.post(
         "/orders/inbox",
-        files={"files": ("order.xlsx", excel.read_bytes(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        files={
+            "files": (
+                "order.xlsx",
+                excel.read_bytes(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
         data={"from_email": "user@example.com", "subject": "New order"},
     )
     order_id = resp.json()["order_id"]
