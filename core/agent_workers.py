@@ -57,15 +57,15 @@ def compute_confidence(work_context: Dict[str, Any]) -> float:
 
 
 def compute_costs(total_hours: float, work_context: Dict[str, Any]) -> Dict[str, float]:
-    hourly_rate = work_context.get("hourly_rate")
-    monthly_cost = total_hours * float(hourly_rate)
+    hourly_rate = float(work_context.get("hourly_rate") or 0.0)
+    monthly_cost = total_hours * hourly_rate
     period = work_context.get("period") or {}
     if period.get("type") == "monthly" and period.get("working_days"):
         annual_cost = monthly_cost * 12
     else:
         annual_cost = monthly_cost * 12
     return {
-        "hourly_rate": float(hourly_rate),
+        "hourly_rate": hourly_rate,
         "monthly_cost": round(monthly_cost, 2),
         "annual_cost": round(annual_cost, 2),
     }

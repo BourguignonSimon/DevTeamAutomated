@@ -18,7 +18,7 @@ class Failure:
     details: Optional[Dict[str, Any]] = None
 
     def to_payload(self) -> Dict[str, Any]:
-        payload = {"category": self.category.value, "reason": self.reason}
+        payload: Dict[str, Any] = {"category": self.category.value, "reason": self.reason}
         if self.details:
             payload["details"] = self.details
         return payload

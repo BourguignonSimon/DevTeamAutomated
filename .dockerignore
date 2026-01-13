@@ -29,7 +29,6 @@ env/
 ENV/
 
 # Testing
-tests/
 .pytest_cache/
 .coverage
 htmlcov/
@@ -48,7 +47,6 @@ htmlcov/
 Thumbs.db
 
 # Project specific
-demo/
 reports/
 tmp/
 temp/
