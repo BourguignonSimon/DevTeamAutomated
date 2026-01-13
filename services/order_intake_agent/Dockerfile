@@ -6,6 +6,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY core ./core
 COPY schemas ./schemas
 COPY services ./services
-COPY README.md ./
 ENV PYTHONPATH=/app
 CMD ["python", "-m", "services.order_intake_agent.main"]
