@@ -121,7 +121,7 @@ services:
   tests:
     build:
       context: .
-      dockerfile: services/orchestrator/Dockerfile
+      dockerfile: services/tests/Dockerfile
     container_name: audit_tests
     environment:
       REDIS_HOST: redis
