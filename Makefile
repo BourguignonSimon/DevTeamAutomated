@@ -22,13 +22,13 @@ ps:
 demo: demo-happy demo-failure demo-clarification
 
 demo-happy:
-	./demo/demo_happy_path.sh
+	bash ./demo/demo_happy_path.sh
 
 demo-failure:
-	./demo/demo_failure_retry_dlq.sh
+	bash ./demo/demo_failure_retry_dlq.sh
 
 demo-clarification:
-	./demo/demo_clarification.sh
+	bash ./demo/demo_clarification.sh
 
 demointeractive:
 	$(COMPOSE) exec -T orchestrator sh -lc "PYTHONPATH=/app python -m demo.interactive_demo"
