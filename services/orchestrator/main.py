@@ -107,7 +107,7 @@ def _apply_status_safe(
     if not item:
         return False, "missing item"
     try:
-        assert_transition(item.get("status"), new_status.value)
+        assert_transition(str(item.get("status", "")), new_status.value)
         store.set_status(project_id, item_id, new_status.value)
         return True, ""
     except Exception as e:
@@ -272,7 +272,7 @@ def process_message(
             qstore.set_answer(project_id, question_id, answer)
             qstore.close_question(project_id, question_id)
 
-            q = qstore.get_question(project_id, question_id)
+            q = qstore.get_question(project_id, question_id) or {}
             backlog_item_id = q.get("backlog_item_id") if isinstance(q, dict) else getattr(q, "backlog_item_id", None)
             if backlog_item_id:
                 _apply_status_safe(store, project_id, backlog_item_id, BacklogStatus.READY)
@@ -324,7 +324,7 @@ def process_message(
             else:
                 current = store.get_item(project_id, backlog_item_id) if hasattr(store, "get_item") else None
                 try:
-                    assert_transition((current or {}).get("status"), BacklogStatus.DONE.value)
+                    assert_transition(str((current or {}).get("status", "")), BacklogStatus.DONE.value)
                 except Exception:
                     try:
                         store.set_status(project_id, backlog_item_id, BacklogStatus.DONE.value)
@@ -423,7 +423,7 @@ def _dispatch_ready_tasks(r, settings, store: "BacklogStore", correlation_id: st
                 current = current or store.get_item(project_id, item_id)
                 if current:
                     try:
-                        assert_transition(current.get("status"), BacklogStatus.IN_PROGRESS.value)
+                        assert_transition(str(current.get("status", "")), BacklogStatus.IN_PROGRESS.value)
                         store.set_status(project_id, item_id, BacklogStatus.IN_PROGRESS.value)
                     except Exception:
                         pass

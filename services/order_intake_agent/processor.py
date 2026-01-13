@@ -5,7 +5,7 @@ import json
 import logging
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
 import httpx
 import redis
@@ -110,7 +110,8 @@ class OrderIntakeAgent:
             if not data.get("ok"):
                 log.warning("gateway returned not ok for %s: %s", env.get("correlation_id"), data)
                 return None
-            return data.get("result_json")
+            result = data.get("result_json")
+            return cast(Dict[str, Any], result) if result is not None else None
         except Exception:
             log.exception("gateway call failed correlation_id=%s", env.get("correlation_id"))
             return None

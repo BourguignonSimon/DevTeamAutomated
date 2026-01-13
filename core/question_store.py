@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 import redis
 
@@ -79,7 +79,7 @@ class QuestionStore:
             return None
         if isinstance(raw, bytes):
             raw = raw.decode("utf-8")
-        return json.loads(raw)
+        return cast(Dict[str, Any], json.loads(raw))
 
     def list_open(self, project_id: str) -> List[str]:
         return sorted([self._decode(x) for x in self.r.smembers(self._open(project_id))])

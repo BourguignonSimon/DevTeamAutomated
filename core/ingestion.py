@@ -143,7 +143,7 @@ def normalize_rows(rows: Sequence[Mapping[str, object]]) -> List[Dict[str, objec
     normalized_rows: List[Dict[str, object]] = []
     for row in rows:
         text = _clean_text(row.get(detected.text))
-        category_raw = row.get(detected.category) if detected.category else ""
+        category_raw = str(row.get(detected.category) or "") if detected.category else ""
         duration_raw = row.get(detected.duration) if detected.duration else None
 
         normalized_rows.append(

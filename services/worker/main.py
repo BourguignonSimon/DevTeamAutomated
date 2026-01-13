@@ -35,7 +35,7 @@ def _handle_dispatch(r, reg, settings, store: BacklogStore, env: dict) -> None:
         try:
             current = store.get_item(project_id, item_id)
             if current:
-                assert_transition(current.get("status"), BacklogStatus.IN_PROGRESS.value)
+                assert_transition(str(current.get("status", "")), BacklogStatus.IN_PROGRESS.value)
                 store.set_status(project_id, item_id, BacklogStatus.IN_PROGRESS.value)
         except Exception as e:
             log.warning("unable to mark in-progress: %s", e)
@@ -62,7 +62,7 @@ def _handle_dispatch(r, reg, settings, store: BacklogStore, env: dict) -> None:
         try:
             current = store.get_item(project_id, item_id)
             if current:
-                assert_transition(current.get("status"), BacklogStatus.DONE.value)
+                assert_transition(str(current.get("status", "")), BacklogStatus.DONE.value)
                 store.set_status(project_id, item_id, BacklogStatus.DONE.value)
         except Exception as e:
             log.warning("unable to mark done: %s", e)

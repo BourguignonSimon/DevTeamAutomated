@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import time
 import traceback
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 import redis
 
@@ -16,7 +16,7 @@ def _try_parse_event(original_fields: Dict[str, str]) -> Dict[str, Any]:
     if not raw:
         return {}
     try:
-        return json.loads(raw)
+        return cast(Dict[str, Any], json.loads(raw))
     except Exception:
         return {}
 
@@ -53,4 +53,4 @@ def publish_dlq(
     }
     if error:
         doc["stack_trace"] = "".join(traceback.format_exception(error))[-_DEF_MAX_TRACE:]
-    return r.xadd(dlq_stream, {"dlq": json.dumps(doc)})
+    return cast(str, r.xadd(dlq_stream, {"dlq": json.dumps(doc)}))

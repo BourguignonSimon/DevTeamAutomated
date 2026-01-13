@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, Iterable
+from typing import Any, Dict, Iterable, cast
 
 
 class FactLedger:
@@ -13,7 +13,7 @@ class FactLedger:
     """
 
     def __init__(self, base_dir: str | None = None):
-        resolved_dir = base_dir or os.getenv("LEDGER_DIR", "storage/audit_log")
+        resolved_dir = cast(str, base_dir or os.getenv("LEDGER_DIR", "storage/audit_log"))
         self.base_dir = Path(resolved_dir)
         self.base_dir.mkdir(parents=True, exist_ok=True)
 

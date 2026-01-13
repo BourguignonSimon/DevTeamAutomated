@@ -58,7 +58,7 @@ def parse_excel_order(path: Path) -> ParsedOrder:
         sku = str(values[sku_idx]).strip() if sku_idx is not None and values[sku_idx] is not None else ""
         qty_raw = values[qty_idx] if qty_idx is not None and qty_idx < len(values) else None
         try:
-            qty = float(qty_raw) if qty_raw not in (None, "") else 0
+            qty = float(str(qty_raw)) if qty_raw not in (None, "") else 0
         except Exception:
             qty = 0
         desc = str(values[desc_idx]).strip() if desc_idx is not None and values[desc_idx] is not None else None

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, cast
 
 import redis
 
@@ -71,7 +71,7 @@ class BacklogStore:
             return None
         if isinstance(raw, bytes):
             raw = raw.decode("utf-8")
-        return json.loads(raw)
+        return cast(Dict[str, Any], json.loads(raw))
 
     def list_item_ids(self, project_id: str) -> List[str]:
         ids = [self._decode(x) for x in self.r.smembers(self._index(project_id))]

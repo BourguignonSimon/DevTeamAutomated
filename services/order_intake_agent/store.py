@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 import redis
 
@@ -45,7 +45,7 @@ class OrderStore:
             return None
         if isinstance(raw, bytes):
             raw = raw.decode("utf-8")
-        return json.loads(raw)
+        return cast(Dict[str, Any], json.loads(raw))
 
     def save_order_draft(self, order_id: str, draft: Dict[str, Any]) -> None:
         self.r.set(self._draft_key(order_id), json.dumps(draft))
@@ -56,7 +56,7 @@ class OrderStore:
             return None
         if isinstance(raw, bytes):
             raw = raw.decode("utf-8")
-        return json.loads(raw)
+        return cast(Dict[str, Any], json.loads(raw))
 
     def save_missing_fields(self, order_id: str, missing: List[Dict[str, Any]]) -> None:
         self.r.set(self._missing_key(order_id), json.dumps(missing))
@@ -70,7 +70,7 @@ class OrderStore:
             return []
         if isinstance(raw, bytes):
             raw = raw.decode("utf-8")
-        return json.loads(raw)
+        return cast(List[Dict[str, Any]], json.loads(raw))
 
     def get_anomalies(self, order_id: str) -> List[Dict[str, Any]]:
         raw = self.r.get(self._anomaly_key(order_id))
@@ -78,7 +78,7 @@ class OrderStore:
             return []
         if isinstance(raw, bytes):
             raw = raw.decode("utf-8")
-        return json.loads(raw)
+        return cast(List[Dict[str, Any]], json.loads(raw))
 
     def record_export(self, order_id: str, export_meta: Dict[str, Any]) -> None:
         self.r.set(self._export_key(order_id), json.dumps(export_meta))
@@ -89,7 +89,7 @@ class OrderStore:
             return None
         if isinstance(raw, bytes):
             raw = raw.decode("utf-8")
-        return json.loads(raw)
+        return cast(Dict[str, Any], json.loads(raw))
 
     def add_pending_validation(self, validation_set_key: str, order_id: str) -> None:
         self.r.sadd(validation_set_key, order_id)
