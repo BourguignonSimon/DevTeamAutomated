@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from jsonschema import Draft202012Validator, FormatChecker
+from referencing import Registry, Resource
 
 from core.schema_registry import SchemaRegistry
 
@@ -14,9 +15,18 @@ class ValidationResult:
     error: Optional[str] = None
     schema_id: Optional[str] = None
 
+def _build_registry(store: dict | None) -> Registry | None:
+    if not store:
+        return None
+    registry: Registry = Registry()
+    for uri, contents in store.items():
+        registry = registry.with_resource(uri, Resource.from_contents(contents))
+    return registry
 
-def _validate(schema: dict, instance: Any) -> ValidationResult:
-    v = Draft202012Validator(schema, format_checker=FormatChecker())
+
+def _validate(schema: dict, instance: Any, *, store: dict | None = None) -> ValidationResult:
+    registry = _build_registry(store)
+    v = Draft202012Validator(schema, format_checker=FormatChecker(), registry=registry)
     errors = sorted(v.iter_errors(instance), key=lambda e: e.path)
     if errors:
         e = errors[0]
@@ -25,11 +35,11 @@ def _validate(schema: dict, instance: Any) -> ValidationResult:
 
 
 def validate_envelope(reg: SchemaRegistry, envelope: dict) -> ValidationResult:
-    return _validate(reg.envelope, envelope)
+    return _validate(reg.envelope, envelope, store=reg.objects_by_id)
 
 
 def validate_payload(reg: SchemaRegistry, event_type: str, payload: Any) -> ValidationResult:
     schema = reg.payloads.get(event_type)
     if not schema:
         return ValidationResult(False, f"no schema for event_type={event_type}", None)
-    return _validate(schema, payload)
+    return _validate(schema, payload, store=reg.objects_by_id)

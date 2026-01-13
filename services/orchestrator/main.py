@@ -5,20 +5,30 @@ import logging
 import os
 import time
 import uuid
-from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
+from core.backlog_store import BacklogStore
 from core.config import Settings
 from core.dlq import publish_dlq
+from core.failures import Failure, FailureCategory
 from core.idempotence import mark_if_new
+from core.metrics import MetricsRecorder
+from core.question_store import QuestionStore
 from core.redis_streams import ack, build_redis_client, ensure_consumer_group, read_group
 from core.schema_registry import load_registry
 from core.schema_validate import validate_envelope, validate_payload
 from core.state_machine import BacklogStatus, assert_transition
-from core.backlog_store import BacklogStore
-from core.question_store import QuestionStore
+from core.trace import TraceLogger, TraceRecord
+from core.validators import DefinitionOfDoneRegistry, ValidationResult, default_validator
 
 log = logging.getLogger("orchestrator")
+trace_logger: TraceLogger | None = None
+metrics: MetricsRecorder | None = None
+dod_registry = DefinitionOfDoneRegistry()
+dod_registry.register("test_worker", default_validator)
+dod_registry.register("dev_worker", default_validator)
+dod_registry.register("requirements_manager", default_validator)
+dod_registry.register("scenario_worker", default_validator)
 
 
 # ----------------------------
@@ -102,23 +112,20 @@ def _apply_status_safe(store: BacklogStore, project_id: str, item_id: str, new_s
         return False, str(e)
 
 
-def _dlq(r, reason: str, original_fields: Any, schema_id: Optional[str] = None) -> None:
-    # Keep required DLQ fields: event_id, event_type, reason, original_event (tests expect this)
-    original_event = None
-    if isinstance(original_fields, dict) and "event" in original_fields:
-        try:
-            original_event = json.loads(original_fields["event"])
-        except Exception:
-            original_event = original_fields["event"]
+def _dlq(r, reason: str, original_fields: Any, schema_id: Optional[str] = None, original_event: Optional[Dict[str, Any]] = None) -> None:
+    # Ensure original_fields is a dict with string values (Redis stream format)
+    if not isinstance(original_fields, dict):
+        original_fields = {}
     else:
-        original_event = original_fields
-
-    event_id = None
-    event_type = None
-    if isinstance(original_event, dict):
-        event_id = original_event.get("event_id")
-        event_type = original_event.get("event_type")
-
+        # Ensure all values are strings (Redis stream format requirement)
+        original_fields = {k: str(v) if not isinstance(v, str) else v for k, v in original_fields.items()}
+    
+    # If we have a decoded event but original_fields doesn't have 'event', add it
+    # This preserves event metadata even when fields don't contain the event properly
+    if original_event and "event" not in original_fields:
+        original_fields = original_fields.copy()
+        original_fields["event"] = json.dumps(original_event)
+    
     publish_dlq(
         r,
         Settings().dlq_stream,  # safe: reads env defaults
@@ -145,6 +152,12 @@ def process_message(
     msg_id: str,
     fields: Dict[str, str],
 ) -> None:
+    global trace_logger
+    global metrics
+    if trace_logger is None:
+        trace_logger = TraceLogger(prefix=settings.trace_prefix)
+    if metrics is None:
+        metrics = MetricsRecorder(prefix=settings.metrics_prefix)
     # parse
     if "event" not in fields:
         _dlq(r, "missing field 'event'", fields)
@@ -165,25 +178,31 @@ def process_message(
         ack(r, settings.stream_name, group, msg_id)
         return
 
+    event_type = env["event_type"]
+    payload = env.get("payload")
+
+    corr = env.get("correlation_id") or str(uuid.uuid4())
+    caus = env.get("event_id")
     event_id = env["event_id"]
 
     # idempotence
-    if not mark_if_new(r, event_id=event_id, ttl_s=settings.idempotence_ttl_s):
+    if not mark_if_new(
+        r,
+        event_id=event_id,
+        consumer_group=settings.consumer_group,
+        ttl_s=settings.idempotence_ttl_s,
+        prefix=settings.idempotence_prefix,
+        correlation_id=corr,
+    ):
         log.info("duplicate event ignored event_id=%s", event_id)
         ack(r, settings.stream_name, group, msg_id)
         return
-
-    event_type = env["event_type"]
-    payload = env.get("payload")
 
     res_pl = validate_payload(reg, event_type, payload)
     if not res_pl.ok:
         _dlq(r, res_pl.error or "invalid payload", fields, schema_id=res_pl.schema_id)
         ack(r, settings.stream_name, group, msg_id)
         return
-
-    corr = env.get("correlation_id") or str(uuid.uuid4())
-    caus = env.get("event_id")
 
     # domain/business logic (no raises)
     try:
@@ -261,11 +280,78 @@ def process_message(
 
                 _dispatch_ready_tasks(r, settings, store, corr, caus)
 
+        elif event_type == "WORK.ITEM_COMPLETED":
+            project_id = payload["project_id"]
+            backlog_item_id = payload["backlog_item_id"]
+            agent = env.get("source", {}).get("service") or "unknown"
+            metrics.inc("work_item_completed_seen")
+            result: ValidationResult = dod_registry.validate(agent, payload)
+            if not result.ok:
+                reason = result.reason or "dod_failed"
+                fail_env = envelope(
+                    event_type="WORK.ITEM_FAILED",
+                    payload={
+                        "project_id": project_id,
+                        "backlog_item_id": backlog_item_id,
+                        "failure": Failure(FailureCategory.DATA_INSUFFICIENCY, reason).to_payload(),
+                    },
+                    source="orchestrator",
+                    correlation_id=corr,
+                    causation_id=caus,
+                )
+                r.xadd(settings.stream_name, {"event": json.dumps(fail_env)})
+                clar_env = envelope(
+                    event_type="CLARIFICATION.NEEDED",
+                    payload={
+                        "project_id": project_id,
+                        "backlog_item_id": backlog_item_id,
+                        "reason": reason,
+                        "agent": agent,
+                    },
+                    source="orchestrator",
+                    correlation_id=corr,
+                    causation_id=caus,
+                )
+                r.xadd(settings.stream_name, {"event": json.dumps(clar_env)})
+            else:
+                current = store.get_item(project_id, backlog_item_id) if hasattr(store, "get_item") else None
+                try:
+                    assert_transition((current or {}).get("status"), BacklogStatus.DONE.value)
+                except Exception:
+                    try:
+                        store.set_status(project_id, backlog_item_id, BacklogStatus.DONE.value)
+                    except Exception:
+                        pass
+                trace_logger.log(
+                    TraceRecord(
+                        agent=agent,
+                        event_type=event_type,
+                        decision="definition_of_done_passed",
+                        inputs={"payload": payload},
+                        outputs={"status": "DONE"},
+                        correlation_id=corr,
+                    )
+                )
+
+        elif event_type == "HUMAN.APPROVAL_REQUESTED":
+            project_id = payload["project_id"]
+            backlog_item_id = payload["backlog_item_id"]
+            r.set(f"approval:pending:{project_id}:{backlog_item_id}", "1")
+            metrics.inc("human_approval_requested")
+
+        elif event_type == "HUMAN.APPROVAL_SUBMITTED":
+            project_id = payload["project_id"]
+            backlog_item_id = payload["backlog_item_id"]
+            r.delete(f"approval:pending:{project_id}:{backlog_item_id}")
+            metrics.inc("human_approval_completed")
+            _dispatch_ready_tasks(r, settings, store, corr, caus)
+
         # else: ignore other event_types for EPIC3 scope
 
     except Exception as e:
         # Business failures are not silent: DLQ (keeps pipeline robust)
-        _dlq(r, f"handler_error: {e}", fields)
+        # Pass the decoded env if available to preserve event metadata
+        _dlq(r, f"handler_error: {e}", fields, original_event=env if 'env' in locals() else None)
 
     # Always ACK to prevent infinite pending
     ack(r, settings.stream_name, group, msg_id)
@@ -293,7 +379,19 @@ def _dispatch_ready_tasks(r, settings, store: "BacklogStore", correlation_id: st
                     ready_ids.append(it["id"])
 
         for item_id in ready_ids:
-            # Emit event
+            current = store.get_item(project_id, item_id) if hasattr(store, "get_item") else None
+            title = (current or {}).get("title") or ""
+            title_lower = title.lower()
+
+            if "collect requirements" in title:
+                agent_target = "requirements_manager"
+            elif "run checks" in title:
+                agent_target = "dev_worker"
+            elif "produce report" in title or "test" in title_lower:
+                agent_target = "test_worker"
+            else:
+                agent_target = "dev_worker"
+
             env = {
                 "event_id": str(uuid.uuid4()),
                 "event_type": "WORK.ITEM_DISPATCHED",
@@ -305,13 +403,15 @@ def _dispatch_ready_tasks(r, settings, store: "BacklogStore", correlation_id: st
                 "payload": {
                     "project_id": project_id,
                     "backlog_item_id": item_id,
-                    "agent": "dev_worker",
+                    "item_type": (current or {}).get("type"),
+                    "agent_target": agent_target,
+                    "work_context": {"rows": []},
                 },
             }
             r.xadd(settings.stream_name, {"event": json.dumps(env)})
 
             if hasattr(store, "set_status"):
-                current = store.get_item(project_id, item_id)
+                current = current or store.get_item(project_id, item_id)
                 if current:
                     try:
                         assert_transition(current.get("status"), BacklogStatus.IN_PROGRESS.value)
@@ -328,6 +428,10 @@ def main() -> None:
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 
     settings = Settings()
+    global trace_logger
+    global metrics
+    trace_logger = TraceLogger(prefix=settings.trace_prefix)
+    metrics = MetricsRecorder(prefix=settings.metrics_prefix)
 
     # registry + redis
     reg = load_registry("/app/schemas")
@@ -340,8 +444,8 @@ def main() -> None:
     # Create group + stream if missing
     ensure_consumer_group(r, settings.stream_name, group)
 
-    store = BacklogStore(r)
-    qstore = QuestionStore(r)
+    store = BacklogStore(r, prefix=settings.key_prefix)
+    qstore = QuestionStore(r, prefix=settings.key_prefix)
 
     log.info("orchestrator listening stream=%s group=%s consumer=%s", settings.stream_name, group, consumer)
 

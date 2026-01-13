@@ -1,0 +1,19 @@
+{
+  "recommendations": [
+    {"id": "R1", "status": "DONE", "evidence_paths": ["core/grounding.py", "schemas/objects/facts.v1.schema.json"], "missing_items": [], "patch_plan": []},
+    {"id": "R2", "status": "DONE", "evidence_paths": ["services/orchestrator/main.py", "core/trace.py"], "missing_items": [], "patch_plan": []},
+    {"id": "R3", "status": "DONE", "evidence_paths": ["core/trace.py", "tests/test_trace.py"], "missing_items": [], "patch_plan": []},
+    {"id": "R4", "status": "DONE", "evidence_paths": ["core/evaluation.py", "tests/test_evaluation_sanity.py"], "missing_items": [], "patch_plan": []},
+    {"id": "R5", "status": "DONE", "evidence_paths": ["core/validators.py", "services/orchestrator/main.py"], "missing_items": [], "patch_plan": []},
+    {"id": "R6", "status": "DONE", "evidence_paths": ["core/fact_ledger.py", "storage/audit_log"], "missing_items": [], "patch_plan": []},
+    {"id": "R7", "status": "DONE", "evidence_paths": ["agents/metadata"], "missing_items": [], "patch_plan": []},
+    {"id": "R8", "status": "DONE", "evidence_paths": ["core/fact_ledger.py", "tests/test_fact_ledger_integrity.py"], "missing_items": [], "patch_plan": []},
+    {"id": "R9", "status": "DONE", "evidence_paths": ["schemas/events/human.approval_requested.v1.schema.json", "services/orchestrator/main.py"], "missing_items": [], "patch_plan": []},
+    {"id": "R10", "status": "DONE", "evidence_paths": ["core/failures.py", "tests/test_failure_taxonomy.py"], "missing_items": [], "patch_plan": []},
+    {"id": "R11", "status": "DONE", "evidence_paths": ["core/metrics.py"], "missing_items": [], "patch_plan": []},
+    {"id": "R12", "status": "DONE", "evidence_paths": ["prompts/versions.json", "tests/test_prompt_versioning.py"], "missing_items": [], "patch_plan": []},
+    {"id": "R13", "status": "DONE", "evidence_paths": ["docs/runtime_env.md", "core/config.py"], "missing_items": [], "patch_plan": []},
+    {"id": "R14", "status": "DONE", "evidence_paths": ["core/grounding.py", "services/orchestrator/main.py"], "missing_items": [], "patch_plan": []},
+    {"id": "R15", "status": "DONE", "evidence_paths": ["core/evaluation.py", "tests/test_evaluation_sanity.py"], "missing_items": [], "patch_plan": []}
+  ]
+}

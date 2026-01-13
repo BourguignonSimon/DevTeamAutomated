@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/user.answer_submitted.v1.schema.json",
+  "title": "USER.ANSWER_SUBMITTED payload v1",
+  "x_event_type": "USER.ANSWER_SUBMITTED",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project_id",
+    "question_id",
+    "answer"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "question_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "answer": {
+      "description": "Raw answer submitted by the user.",
+      "type": [
+        "string",
+        "number",
+        "object",
+        "array",
+        "boolean",
+        "null"
+      ]
+    }
+  }
+}

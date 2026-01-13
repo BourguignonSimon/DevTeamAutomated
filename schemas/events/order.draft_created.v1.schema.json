@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/order.draft_created.v1.schema.json",
+  "title": "ORDER.DRAFT_CREATED payload v1",
+  "x_event_type": "ORDER.DRAFT_CREATED",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["order_id", "order_draft", "email_draft"],
+  "properties": {
+    "order_id": {"type": "string", "format": "uuid"},
+    "order_draft": {"$ref": "../objects/order_draft.v1.schema.json"},
+    "email_draft": {"$ref": "../objects/email_draft.v1.schema.json"}
+  }
+}

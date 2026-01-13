@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/order.missing_fields_detected.v1.schema.json",
+  "title": "ORDER.MISSING_FIELDS_DETECTED payload v1",
+  "x_event_type": "ORDER.MISSING_FIELDS_DETECTED",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["order_id", "missing_fields"],
+  "properties": {
+    "order_id": {"type": "string", "format": "uuid"},
+    "missing_fields": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field", "reason"],
+        "properties": {
+          "field": {"type": "string"},
+          "reason": {"type": "string"}
+        }
+      }
+    }
+  }
+}

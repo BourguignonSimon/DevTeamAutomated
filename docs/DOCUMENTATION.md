@@ -308,7 +308,7 @@ Defines allowed backlog status transitions and enforcement helpers.
 - `_ALLOWED`: Dict mapping each state to allowed destination states.
 - **TransitionResult(ok, from_status, to_status, reason=None)**: Outcome container for transitions.
 - `is_allowed(from_status, to_status) -> bool`: Membership check in `_ALLOWED`.
-- `assert_transition(from_status, to_status) -> TransitionResult`: Returns success result for valid transitions; raises `ValueError` with descriptive message otherwise.
+- `assert_transition(from_status, to_status) -> TransitionResult`: Returns success result for valid transitions; raises `IllegalTransition` exception otherwise.
 
 ### `core.agent_workers`
 Shared computation helpers leveraged by the EPIC5 worker agents.

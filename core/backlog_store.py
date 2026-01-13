@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Any, Dict, Iterable, List, Optional
 
 import redis
@@ -10,14 +11,14 @@ class BacklogStore:
     """Redis-backed store for BacklogItems.
 
     Storage:
-      - item doc:  audit:project:{project_id}:backlog:item:{item_id}
-      - index all: audit:project:{project_id}:backlog:index
-      - index by status: audit:project:{project_id}:backlog:status:{STATUS}
+      - item doc:  {prefix}:project:{project_id}:backlog:item:{item_id}
+      - index all: {prefix}:project:{project_id}:backlog:index
+      - index by status: {prefix}:project:{project_id}:backlog:status:{STATUS}
     """
 
-    def __init__(self, r: redis.Redis, prefix: str = "audit"):
+    def __init__(self, r: redis.Redis, prefix: str | None = None):
         self.r = r
-        self.prefix = prefix
+        self.prefix = prefix or os.getenv("KEY_PREFIX", "audit")
 
     def _key(self, project_id: str, item_id: str) -> str:
         return f"{self.prefix}:project:{project_id}:backlog:item:{item_id}"
