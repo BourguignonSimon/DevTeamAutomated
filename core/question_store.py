@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -14,15 +15,15 @@ class QuestionStore:
     To keep the object contract strict, we store answers and status in separate keys.
 
     Storage:
-      - question doc:  audit:project:{project_id}:question:{question_id}
-      - index all:     audit:project:{project_id}:questions:index
-      - index open:    audit:project:{project_id}:questions:open
-      - answer:        audit:question:{question_id}:answer
+      - question doc:  {prefix}:project:{project_id}:question:{question_id}
+      - index all:     {prefix}:project:{project_id}:questions:index
+      - index open:    {prefix}:project:{project_id}:questions:open
+      - answer:        {prefix}:question:{question_id}:answer
     """
 
-    def __init__(self, r: redis.Redis, prefix: str = "audit"):
+    def __init__(self, r: redis.Redis, prefix: str | None = None):
         self.r = r
-        self.prefix = prefix
+        self.prefix = prefix or os.getenv("KEY_PREFIX", "audit")
 
     def _qkey(self, project_id: str, question_id: str) -> str:
         return f"{self.prefix}:project:{project_id}:question:{question_id}"

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/order.validated.v1.schema.json",
+  "title": "ORDER.VALIDATED payload v1",
+  "x_event_type": "ORDER.VALIDATED",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["order_id", "validated_by", "validated_at"],
+  "properties": {
+    "order_id": {"type": "string", "format": "uuid"},
+    "validated_by": {"type": "string"},
+    "validated_at": {"type": "string", "format": "date-time"},
+    "final_order_draft": {"$ref": "../objects/order_draft.v1.schema.json"}
+  }
+}

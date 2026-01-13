@@ -8,6 +8,7 @@ from core.backlog_store import BacklogStore
 from core.config import Settings
 from core.dlq import publish_dlq
 from core.event_utils import envelope, now_iso
+from core.locks import acquire_lock, release_lock
 from core.logging import setup_logging
 from core.redis_streams import ack, build_redis_client, ensure_consumer_group, read_group
 from core.schema_registry import load_registry
@@ -26,40 +27,47 @@ def _handle_dispatch(r, reg, settings, store: BacklogStore, env: dict) -> None:
     project_id = payload["project_id"]
     item_id = payload["backlog_item_id"]
 
+    lock = acquire_lock(r, f"{settings.key_prefix}:lock:backlog:{item_id}", ttl_ms=settings.lock_ttl_s * 1000)
+    if not lock:
+        log.info("backlog lock busy backlog_item_id=%s", item_id)
+        return
     try:
-        current = store.get_item(project_id, item_id)
-        if current:
-            assert_transition(current.get("status"), BacklogStatus.IN_PROGRESS.value)
-            store.set_status(project_id, item_id, BacklogStatus.IN_PROGRESS.value)
-    except Exception as e:
-        log.warning("unable to mark in-progress: %s", e)
+        try:
+            current = store.get_item(project_id, item_id)
+            if current:
+                assert_transition(current.get("status"), BacklogStatus.IN_PROGRESS.value)
+                store.set_status(project_id, item_id, BacklogStatus.IN_PROGRESS.value)
+        except Exception as e:
+            log.warning("unable to mark in-progress: %s", e)
 
-    started_env = envelope(
-        event_type="WORK.ITEM_STARTED",
-        payload={"project_id": project_id, "backlog_item_id": item_id, "started_at": now_iso()},
-        source="worker",
-        correlation_id=env.get("correlation_id") or str(uuid.uuid4()),
-        causation_id=env.get("event_id"),
-    )
-    r.xadd(settings.stream_name, {"event": json.dumps(started_env)})
+        started_env = envelope(
+            event_type="WORK.ITEM_STARTED",
+            payload={"project_id": project_id, "backlog_item_id": item_id, "started_at": now_iso()},
+            source="worker",
+            correlation_id=env.get("correlation_id") or str(uuid.uuid4()),
+            causation_id=env.get("event_id"),
+        )
+        r.xadd(settings.stream_name, {"event": json.dumps(started_env)})
 
-    evidence = {"note": "auto-completed"}
-    completed_env = envelope(
-        event_type="WORK.ITEM_COMPLETED",
-        payload={"project_id": project_id, "backlog_item_id": item_id, "evidence": evidence},
-        source="worker",
-        correlation_id=env.get("correlation_id") or str(uuid.uuid4()),
-        causation_id=env.get("event_id"),
-    )
-    r.xadd(settings.stream_name, {"event": json.dumps(completed_env)})
+        evidence = {"note": "auto-completed"}
+        completed_env = envelope(
+            event_type="WORK.ITEM_COMPLETED",
+            payload={"project_id": project_id, "backlog_item_id": item_id, "evidence": evidence},
+            source="worker",
+            correlation_id=env.get("correlation_id") or str(uuid.uuid4()),
+            causation_id=env.get("event_id"),
+        )
+        r.xadd(settings.stream_name, {"event": json.dumps(completed_env)})
 
-    try:
-        current = store.get_item(project_id, item_id)
-        if current:
-            assert_transition(current.get("status"), BacklogStatus.DONE.value)
-            store.set_status(project_id, item_id, BacklogStatus.DONE.value)
-    except Exception as e:
-        log.warning("unable to mark done: %s", e)
+        try:
+            current = store.get_item(project_id, item_id)
+            if current:
+                assert_transition(current.get("status"), BacklogStatus.DONE.value)
+                store.set_status(project_id, item_id, BacklogStatus.DONE.value)
+        except Exception as e:
+            log.warning("unable to mark done: %s", e)
+    finally:
+        release_lock(r, lock)
 
 
 def _process_message(r, reg, settings, store: BacklogStore, msg_id: str, fields: dict) -> None:
@@ -99,7 +107,7 @@ def main() -> None:
     setup_logging(settings.log_level)
     reg = load_registry("/app/schemas")
     r = build_redis_client(settings.redis_host, settings.redis_port, settings.redis_db)
-    store = BacklogStore(r)
+    store = BacklogStore(r, prefix=settings.key_prefix)
 
     ensure_consumer_group(r, settings.stream_name, settings.consumer_group)
     log.info("worker listening stream=%s group=%s consumer=%s", settings.stream_name, settings.consumer_group, settings.consumer_name)

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/objects/trace_record.v1.schema.json",
+  "title": "Trace Record",
+  "type": "object",
+  "required": ["agent", "event_type", "decision", "inputs", "outputs"],
+  "properties": {
+    "agent": {"type": "string"},
+    "event_type": {"type": "string"},
+    "decision": {"type": "string"},
+    "inputs": {"type": "object"},
+    "outputs": {"type": "object"},
+    "correlation_id": {"type": ["string", "null"]}
+  },
+  "additionalProperties": false
+}

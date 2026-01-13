@@ -1,0 +1,289 @@
+# Production Docker Compose configuration
+# Usage: docker compose -f docker-compose.prod.yml up --build
+#
+# IMPORTANT: Before deploying to production, ensure you:
+# 1. Set REDIS_PASSWORD in your environment or .env file
+# 2. Configure LLM API keys (ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY)
+# 3. Review and adjust resource limits based on your infrastructure
+# 4. Set up proper monitoring and logging
+# 5. Configure backups for Redis data
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: audit_redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-changeme}
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--auth", "${REDIS_PASSWORD:-changeme}", "ping"]
+      interval: 2s
+      timeout: 1s
+      retries: 30
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: services/orchestrator/Dockerfile
+    container_name: audit_orchestrator
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme}
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: orchestrator
+      CONSUMER_NAME: orchestrator-1
+      LOCK_TTL_S: 300
+      IDEMPOTENCE_TTL_S: 604800
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  validator:
+    build:
+      context: .
+      dockerfile: services/stream_consumer/Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme}
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: validators
+      CONSUMER_NAME: validator-1
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+      replicas: 2
+
+  worker:
+    build:
+      context: .
+      dockerfile: services/worker/Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme}
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: workers
+      CONSUMER_NAME: worker-${HOSTNAME:-1}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+      replicas: 2
+
+  time_waste_worker:
+    build:
+      context: .
+      dockerfile: services/time_waste_worker/Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme}
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: time_waste_workers
+      CONSUMER_NAME: time-waste-${HOSTNAME:-1}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  cost_worker:
+    build:
+      context: .
+      dockerfile: services/cost_worker/Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme}
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: cost_workers
+      CONSUMER_NAME: cost-${HOSTNAME:-1}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  friction_worker:
+    build:
+      context: .
+      dockerfile: services/friction_worker/Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme}
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: friction_workers
+      CONSUMER_NAME: friction-${HOSTNAME:-1}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  scenario_worker:
+    build:
+      context: .
+      dockerfile: services/scenario_worker/Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme}
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: scenario_workers
+      CONSUMER_NAME: scenario-${HOSTNAME:-1}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  requirements_manager_worker:
+    build:
+      context: .
+      dockerfile: services/requirements_manager_worker/Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme}
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: requirements_manager_workers
+      CONSUMER_NAME: requirements-manager-${HOSTNAME:-1}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  dev_worker:
+    build:
+      context: .
+      dockerfile: services/dev_worker/Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme}
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: dev_workers
+      CONSUMER_NAME: dev-worker-${HOSTNAME:-1}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  test_worker:
+    build:
+      context: .
+      dockerfile: services/test_worker/Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme}
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: test_workers
+      CONSUMER_NAME: test-worker-${HOSTNAME:-1}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  order_intake_agent:
+    build:
+      context: .
+      dockerfile: services/order_intake_agent/Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme}
+      STREAM_NAME: audit:events
+      DLQ_STREAM: audit:dlq
+      CONSUMER_GROUP: order_intake
+      CONSUMER_NAME: order-intake-1
+      STORAGE_DIR: /storage
+      LLM_GATEWAY_URL: http://llm_gateway:8000
+      LLM_PROVIDER_ORDER: ${LLM_PROVIDER_ORDER:-anthropic,openai,gemini}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - ./storage:/storage
+    ports:
+      - "8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+      llm_gateway:
+        condition: service_started
+    restart: unless-stopped
+
+  llm_gateway:
+    build:
+      context: .
+      dockerfile: services/llm_gateway/Dockerfile
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LLM_PROVIDER_ORDER: ${LLM_PROVIDER_ORDER:-anthropic,openai,gemini}
+      # IMPORTANT: LLM_TEST_MODE is disabled in production
+      LLM_TEST_MODE: "false"
+      # API Keys (required when LLM_TEST_MODE=false)
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+volumes:
+  redis-data:
+    driver: local

@@ -9,6 +9,7 @@ from core.config import Settings
 from core.dlq import publish_dlq
 from core.event_utils import envelope, now_iso
 from core.idempotence import mark_if_new
+from core.locks import acquire_lock, release_lock
 from core.logging import setup_logging
 from core.redis_streams import ack, build_redis_client, ensure_consumer_group, read_group
 from core.schema_registry import load_registry
@@ -124,7 +125,7 @@ def _process_message(r, reg, settings: Settings, msg_id: str, fields: dict) -> N
 
     event_id = env.get("event_id")
     idem_key = f"{event_id}:{settings.consumer_group}"
-    if not mark_if_new(r, event_id=idem_key, ttl_s=settings.idempotence_ttl_s):
+    if not mark_if_new(r, event_id=idem_key, ttl_s=settings.idempotence_ttl_s, prefix=settings.idempotence_prefix):
         ack(r, settings.stream_name, settings.consumer_group, msg_id)
         return
 
@@ -132,9 +133,16 @@ def _process_message(r, reg, settings: Settings, msg_id: str, fields: dict) -> N
     backlog_item_id = payload["backlog_item_id"]
     work_context = payload.get("work_context") or {}
 
+    lock = acquire_lock(r, f"{settings.key_prefix}:lock:backlog:{backlog_item_id}", ttl_ms=settings.lock_ttl_s * 1000)
+    if not lock:
+        log.info("backlog lock busy backlog_item_id=%s", backlog_item_id)
+        ack(r, settings.stream_name, settings.consumer_group, msg_id)
+        return
+
     rows = work_context.get("rows") or []
     if not rows:
         _emit_clarification(r, settings, env, project_id, backlog_item_id, "work_context.rows missing", ["rows"])
+        release_lock(r, lock)
         ack(r, settings.stream_name, settings.consumer_group, msg_id)
         return
 
@@ -143,7 +151,8 @@ def _process_message(r, reg, settings: Settings, msg_id: str, fields: dict) -> N
         _emit_deliverable(r, settings, env, project_id, backlog_item_id, work_context)
     except Exception as e:
         publish_dlq(r, settings.dlq_stream, str(e), fields)
-
+    finally:
+        release_lock(r, lock)
     ack(r, settings.stream_name, settings.consumer_group, msg_id)
 
 
