@@ -71,6 +71,22 @@ class LogEntry(BaseModel):
     source: str = "system"
 
 
+class StopProjectResponse(BaseModel):
+    status: str
+    message: str
+    stopped_items: int
+
+
+class OrchestratorMessageRequest(BaseModel):
+    message: str
+
+
+class OrchestratorMessageResponse(BaseModel):
+    status: str
+    message: str
+    project_id: str
+
+
 # ============================================================================
 # Application Factory
 # ============================================================================
@@ -229,6 +245,61 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     "created_at": root_item.get("created_at", ""),
                 })
         return projects
+
+    @app.post("/api/project/{project_id}/stop", response_model=StopProjectResponse)
+    def stop_project(project_id: str) -> StopProjectResponse:
+        """Stop a project by setting all its items to STOPPED status."""
+        item_ids = backlog_store.list_item_ids(project_id)
+
+        if not item_ids:
+            raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+
+        stopped_count = 0
+        for item_id in item_ids:
+            item = backlog_store.get_item(project_id, item_id)
+            if item and item.get("status") not in ("STOPPED", "COMPLETED"):
+                backlog_store.set_status(project_id, item_id, "STOPPED")
+                stopped_count += 1
+
+        add_log(f"Project {project_id} stopped. {stopped_count} items stopped.", "warn")
+
+        return StopProjectResponse(
+            status="ok",
+            message=f"Project stopped successfully",
+            stopped_items=stopped_count,
+        )
+
+    @app.post("/api/project/{project_id}/message", response_model=OrchestratorMessageResponse)
+    def send_message_to_orchestrator(
+        project_id: str,
+        req: OrchestratorMessageRequest,
+    ) -> OrchestratorMessageResponse:
+        """Send a message/request to the orchestrator for the specified project."""
+        # Verify project exists
+        item_ids = backlog_store.list_item_ids(project_id)
+        if not item_ids:
+            raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+
+        # Create a new backlog item for this message/request
+        message_item_id = str(uuid.uuid4())
+        message_item = {
+            "id": message_item_id,
+            "project_id": project_id,
+            "title": f"User Request: {req.message[:50]}...",
+            "description": req.message,
+            "status": "READY",
+            "item_type": "orchestrator_request",
+            "created_at": datetime.utcnow().isoformat() + "Z",
+        }
+
+        backlog_store.put_item(message_item)
+        add_log(f"Message sent to orchestrator for project {project_id}: {req.message[:100]}", "info")
+
+        return OrchestratorMessageResponse(
+            status="ok",
+            message="Message sent to orchestrator",
+            project_id=project_id,
+        )
 
     # ========================================================================
     # Question Endpoints

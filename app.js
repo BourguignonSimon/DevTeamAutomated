@@ -3,6 +3,7 @@
     projectId: null,
     questionPoll: null,
     statusPoll: null,
+    projects: [],
   };
 
   const initForm = document.getElementById('init-form');
@@ -19,6 +20,17 @@
   const logFilter = document.getElementById('log-filter');
   const logLevelSelect = document.getElementById('log-level');
   const logBlock = document.getElementById('log');
+
+  // Project selection elements
+  const projectSelect = document.getElementById('project-select');
+  const refreshProjectsBtn = document.getElementById('refresh-projects');
+  const selectedProjectInfo = document.getElementById('selected-project-info');
+  const projectSelectError = document.getElementById('project-select-error');
+  const projectActions = document.getElementById('project-actions');
+  const stopProjectBtn = document.getElementById('stop-project-btn');
+  const orchestratorMessage = document.getElementById('orchestrator-message');
+  const sendMessageBtn = document.getElementById('send-message-btn');
+  const messageFeedback = document.getElementById('message-feedback');
 
   const logState = {
     entries: [],
@@ -96,6 +108,135 @@
       logsStatus.textContent = 'No logs loaded.';
     }
   }
+
+  // ========================================================================
+  // Project Selection Functions
+  // ========================================================================
+
+  async function loadProjects() {
+    projectSelectError.textContent = '';
+    try {
+      const data = await fetchJson('/api/projects');
+      state.projects = Array.isArray(data) ? data : [];
+      renderProjectSelect();
+      log('Projects list loaded.');
+    } catch (error) {
+      console.error(error);
+      projectSelectError.textContent = `Failed to load projects: ${error.message}`;
+    }
+  }
+
+  function renderProjectSelect() {
+    // Clear existing options except the first one
+    while (projectSelect.options.length > 1) {
+      projectSelect.remove(1);
+    }
+
+    // Add projects to the dropdown
+    state.projects.forEach((project) => {
+      const option = document.createElement('option');
+      option.value = project.project_id;
+      option.textContent = `${project.title} (${project.status}) - ${project.project_id.slice(0, 8)}...`;
+      projectSelect.appendChild(option);
+    });
+  }
+
+  function selectProject(projectId) {
+    if (!projectId) {
+      state.projectId = null;
+      selectedProjectInfo.textContent = '';
+      projectActions.style.display = 'none';
+      return;
+    }
+
+    state.projectId = projectId;
+    const project = state.projects.find((p) => p.project_id === projectId);
+
+    if (project) {
+      selectedProjectInfo.innerHTML = `
+        <strong>Selected:</strong> ${project.title}<br>
+        <strong>ID:</strong> ${projectId}<br>
+        <strong>Status:</strong> ${project.status}<br>
+        <strong>Created:</strong> ${project.created_at || 'unknown'}
+      `;
+      projectActions.style.display = 'block';
+      refreshProjectStatus();
+      startStatusPolling();
+    }
+
+    log(`Selected project: ${projectId}`);
+  }
+
+  async function stopProject() {
+    if (!state.projectId) {
+      alert('No project selected.');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to stop this project? This will halt all ongoing work items.')) {
+      return;
+    }
+
+    projectSelectError.textContent = '';
+    stopProjectBtn.disabled = true;
+
+    try {
+      const data = await fetchJson(`/api/project/${state.projectId}/stop`, {
+        method: 'POST',
+      });
+      log(`Project stopped: ${data.stopped_items} items stopped.`, 'warn');
+      alert(`Project stopped successfully. ${data.stopped_items} items were stopped.`);
+      loadProjects(); // Refresh the list
+      refreshProjectStatus();
+    } catch (error) {
+      console.error(error);
+      projectSelectError.textContent = `Failed to stop project: ${error.message}`;
+    } finally {
+      stopProjectBtn.disabled = false;
+    }
+  }
+
+  async function sendMessageToOrchestrator() {
+    if (!state.projectId) {
+      alert('No project selected.');
+      return;
+    }
+
+    const message = orchestratorMessage.value.trim();
+    if (!message) {
+      alert('Please enter a message.');
+      return;
+    }
+
+    messageFeedback.textContent = '';
+    sendMessageBtn.disabled = true;
+
+    try {
+      const data = await fetchJson(`/api/project/${state.projectId}/message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message }),
+      });
+      messageFeedback.textContent = `Message sent successfully to orchestrator.`;
+      log(`Message sent to orchestrator for project ${state.projectId}.`);
+      orchestratorMessage.value = '';
+      refreshProjectStatus();
+    } catch (error) {
+      console.error(error);
+      messageFeedback.textContent = `Failed to send message: ${error.message}`;
+    } finally {
+      sendMessageBtn.disabled = false;
+    }
+  }
+
+  // Project selection event listeners
+  projectSelect.addEventListener('change', (event) => {
+    selectProject(event.target.value);
+  });
+
+  refreshProjectsBtn.addEventListener('click', loadProjects);
+  stopProjectBtn.addEventListener('click', stopProject);
+  sendMessageBtn.addEventListener('click', sendMessageToOrchestrator);
 
   function renderLogs() {
     logBlock.innerHTML = '';
@@ -323,5 +464,7 @@
     renderLogs();
   });
 
+  // Initialize
   startPollingQuestions();
+  loadProjects(); // Load projects on startup
 })();
