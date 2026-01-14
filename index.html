@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DevTeam Automated - Agent Interface</title>
+  <title>Agent Audit Interaction</title>
   <style>
     :root {
       font-family: Arial, sans-serif;
@@ -37,7 +37,6 @@
       margin-bottom: 10px;
       border: 1px solid #ccc;
       border-radius: 4px;
-      box-sizing: border-box;
     }
     textarea { min-height: 80px; }
     button {
@@ -48,19 +47,6 @@
       background: #111;
       color: #fff;
       font-weight: bold;
-    }
-    button:disabled {
-      background: #999;
-      cursor: not-allowed;
-    }
-    button.danger {
-      background: #dc2626;
-    }
-    button.danger:hover {
-      background: #b91c1c;
-    }
-    button.secondary {
-      background: #6b7280;
     }
     .subtext { color: #555; font-size: 0.9rem; }
     .stack { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
@@ -73,10 +59,7 @@
       font-weight: bold;
       font-size: 0.85rem;
     }
-    .pill.active { background: #dcfce7; color: #166534; }
-    .pill.stopped { background: #fee2e2; color: #991b1b; }
     .error { color: #b00020; font-weight: bold; }
-    .success { color: #166534; font-weight: bold; }
     .question {
       border: 1px solid #e1e1e1;
       border-radius: 6px;
@@ -101,7 +84,7 @@
       color: #e5e7eb;
       padding: 12px;
       font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-      height: 400px;
+      height: 460px;
       overflow: auto;
       white-space: pre-wrap;
     }
@@ -123,165 +106,69 @@
     .badge.error { background: #fee2e2; color: #b91c1c; }
     .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
     .control-group { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
-    .project-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 16px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    .project-selector {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .project-selector select {
-      min-width: 250px;
-      margin: 0;
-    }
-    .project-actions {
-      display: flex;
-      gap: 8px;
-    }
-    .status-card {
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 12px 16px;
-      margin-bottom: 12px;
-    }
-    .status-card h3 {
-      margin: 0 0 8px;
-      font-size: 0.9rem;
-      color: #6b7280;
-    }
-    .status-card .value {
-      font-size: 1.5rem;
-      font-weight: bold;
-    }
-    .status-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 12px;
-    }
-    .progress-bar {
-      height: 8px;
-      background: #e5e7eb;
-      border-radius: 4px;
-      overflow: hidden;
-      margin-top: 8px;
-    }
-    .progress-bar .fill {
-      height: 100%;
-      background: #22c55e;
-      transition: width 0.3s ease;
-    }
-    .hidden { display: none; }
   </style>
 </head>
 <body>
-  <h1>DevTeam Automated - Agent Interface</h1>
-
-  <!-- Project Selection Header -->
-  <section id="project-header-section">
-    <div class="project-header">
-      <div class="project-selector">
-        <label for="project-select" style="margin: 0; white-space: nowrap;">Active Project:</label>
-        <select id="project-select">
-          <option value="">-- Select or create a project --</option>
-        </select>
-        <button id="refresh-projects" type="button" class="secondary">Refresh</button>
-      </div>
-      <div class="project-actions">
-        <button id="stop-project" type="button" class="danger" disabled>Stop Project</button>
-      </div>
-    </div>
-    <div id="project-info" class="muted">No project selected. Create a new project or select an existing one.</div>
-  </section>
+  <h1>Agent-Based Audit Interface</h1>
+  <p class="muted">Backend HTTP API must be reachable on this origin. 404/Not Found responses are expected if the API is not running or routes differ.</p>
 
   <div class="layout">
     <div>
-      <!-- Create New Project -->
       <section id="init-section">
-        <h2>Create New Project</h2>
+        <h2>1️⃣ Submit Initial Audit Request</h2>
         <form id="init-form">
           <label for="project_name">Project name</label>
-          <input type="text" id="project_name" name="project_name" placeholder="My Audit Project" required>
+          <input type="text" id="project_name" name="project_name" required>
 
-          <label for="request_text">Request / Instructions for the Orchestrator</label>
-          <textarea id="request_text" name="request_text" placeholder="Describe what you want the agents to analyze. Be specific about KPIs, scope, and expected deliverables." required></textarea>
+          <label for="request_text">Description / context</label>
+          <textarea id="request_text" name="request_text" required></textarea>
 
           <label for="file">Optional file upload (CSV / Excel)</label>
           <input type="file" id="file" name="file" accept=".csv, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
 
-          <button type="submit">Create & Start Project</button>
+          <button type="submit">Send audit request</button>
         </form>
         <div id="init-feedback" class="subtext"></div>
       </section>
 
-      <!-- Project Status -->
-      <section id="status-section">
-        <h2>Project Status</h2>
-        <div id="status-loading" class="muted">Select a project to view status.</div>
-        <div id="status-content" class="hidden">
-          <div class="status-grid">
-            <div class="status-card">
-              <h3>State</h3>
-              <div class="value" id="status-state">--</div>
-            </div>
-            <div class="status-card">
-              <h3>Completion</h3>
-              <div class="value" id="status-completion">0%</div>
-              <div class="progress-bar">
-                <div class="fill" id="status-progress" style="width: 0%"></div>
-              </div>
-            </div>
-            <div class="status-card">
-              <h3>Total Items</h3>
-              <div class="value" id="status-total">0</div>
-            </div>
-            <div class="status-card">
-              <h3>Blocked</h3>
-              <div class="value" id="status-blocked">0</div>
-            </div>
-          </div>
-        </div>
-        <div id="status-error" class="error"></div>
-      </section>
-
-      <!-- Clarification Questions -->
       <section id="questions-section">
-        <h2>Clarification Questions</h2>
-        <p class="muted">The agents may need additional information to proceed. Answer questions below to unblock work items.</p>
+        <h2>2️⃣ View Open Clarification Questions</h2>
+        <p class="muted">Polling backend every 5 seconds for open questions.</p>
         <div id="questions-container"></div>
         <div id="questions-error" class="error"></div>
       </section>
+
+      <section id="status-section">
+        <h2>4️⃣ Project Status (Read-only)</h2>
+        <div class="stack" style="margin-bottom: 8px;">
+          <button id="status-refresh" type="button">Refresh project status</button>
+          <span class="muted">Requires a project_id from the initial request.</span>
+        </div>
+        <div id="project-status" class="subtext">No project tracked yet.</div>
+        <div id="status-error" class="error"></div>
+      </section>
     </div>
 
-    <!-- Logs Panel -->
     <section id="log-section">
       <h2>System Logs</h2>
-      <p class="muted">Activity from backend services and agents.</p>
+      <p class="muted">Central place to inspect backend activity. Filters operate locally; backend remains source of truth.</p>
       <div class="controls" style="margin-bottom: 10px;">
         <button id="logs-refresh" type="button">Fetch logs</button>
         <div class="control-group">
           <label for="log-filter" class="muted" style="margin: 0;">Text filter</label>
-          <input type="text" id="log-filter" placeholder="Search logs..." style="max-width: 200px; margin: 0;">
+          <input type="text" id="log-filter" placeholder="Search log messages" style="max-width: 320px; margin: 0;">
         </div>
-        <div class="control-group" style="max-width: 120px;">
+        <div class="control-group" style="max-width: 160px;">
           <label for="log-level" class="muted" style="margin: 0;">Level</label>
           <select id="log-level" style="margin: 0;">
             <option value="all">All</option>
             <option value="error">Error</option>
             <option value="warn">Warning</option>
             <option value="info">Info</option>
+            <option value="other">Other</option>
           </select>
         </div>
-        <button id="logs-clear" class="secondary" type="button">Clear</button>
+        <button id="logs-clear" class="secondary" type="button">Clear view</button>
       </div>
       <div id="logs-status" class="muted">No logs loaded.</div>
       <div id="logs-error" class="error"></div>
