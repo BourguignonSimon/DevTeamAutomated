@@ -53,9 +53,7 @@
     }, 'ui');
     logState.entries = [entry, ...logState.entries];
     renderLogs();
-  };
-
-  const logBlock = document.getElementById('log');
+  }
 
   async function fetchJson(url, options) {
     const response = await fetch(url, options);
@@ -88,23 +86,32 @@
     try {
       const data = await fetchJson('/api/logs');
       const logs = Array.isArray(data) ? data : data?.logs || [];
-      logState.entries = logs;
+      // Normalize server logs to match our log entry format
+      logState.entries = logs.map((entry) => normalizeLogEntry(entry, entry.source || 'server'));
       renderLogs();
       logsStatus.textContent = `Loaded ${logs.length} logs.`;
-      log('Fetched logs.');
     } catch (error) {
       console.error(error);
-      logsError.textContent = `Failed to load logs (${error.message}). Ensure the backend exposes /api/logs on this origin.`;
-      logsError.textContent = 'Failed to load logs. Backend owns log storage and filtering.';
+      logsError.textContent = `Failed to load logs: ${error.message}`;
       logsStatus.textContent = 'No logs loaded.';
     }
   }
 
   function renderLogs() {
     logBlock.innerHTML = '';
-    const filtered = logState.filterText
-      ? logState.entries.filter((line) => `${line}`.toLowerCase().includes(logState.filterText))
-      : logState.entries;
+    let filtered = logState.entries;
+
+    // Apply text filter
+    if (logState.filterText) {
+      filtered = filtered.filter((entry) =>
+        (entry.text || '').toLowerCase().includes(logState.filterText)
+      );
+    }
+
+    // Apply level filter
+    if (logState.filterLevel && logState.filterLevel !== 'all') {
+      filtered = filtered.filter((entry) => entry.level === logState.filterLevel);
+    }
 
     if (!filtered.length) {
       const empty = document.createElement('div');
