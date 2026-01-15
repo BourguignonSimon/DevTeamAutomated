@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/user.prompt_submitted.v1.schema.json",
+  "title": "USER.PROMPT_SUBMITTED payload v1",
+  "description": "Event emitted when a user sends a prompt to the orchestrator via the web interface",
+  "x_event_type": "USER.PROMPT_SUBMITTED",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project_id",
+    "prompt"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique project tracking ID"
+    },
+    "prompt": {
+      "type": "string",
+      "description": "The prompt/message from the user to the orchestrator"
+    },
+    "interaction_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique ID for this interaction"
+    },
+    "context": {
+      "type": "array",
+      "description": "Previous interaction context",
+      "items": {
+        "type": "object"
+      }
+    }
+  }
+}

@@ -13,6 +13,7 @@ from core.dlq import publish_dlq
 from core.failures import Failure, FailureCategory
 from core.idempotence import mark_if_new
 from core.metrics import MetricsRecorder
+from core.project_store import ProjectStore
 from core.question_store import QuestionStore
 from core.redis_streams import ack, build_redis_client, ensure_consumer_group, read_group
 from core.schema_registry import load_registry
@@ -24,6 +25,7 @@ from core.validators import DefinitionOfDoneRegistry, ValidationResult, default_
 log = logging.getLogger("orchestrator")
 trace_logger: TraceLogger | None = None
 metrics: MetricsRecorder | None = None
+project_store: ProjectStore | None = None
 dod_registry = DefinitionOfDoneRegistry()
 dod_registry.register("test_worker", default_validator)
 dod_registry.register("dev_worker", default_validator)
@@ -139,6 +141,51 @@ def _now_iso() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
+def _send_customer_message(
+    r,
+    settings: Settings,
+    pstore: ProjectStore,
+    project_id: str,
+    message_type: str,
+    content: str,
+    related_item_id: Optional[str] = None,
+    requires_response: bool = False,
+    correlation_id: Optional[str] = None,
+    causation_id: Optional[str] = None,
+) -> None:
+    """Send a message to the customer via the web interface.
+
+    This stores the message in the ProjectStore and emits an event
+    so that the web gateway can deliver it to the customer.
+    """
+    # Store the message
+    message = pstore.send_message_to_customer(
+        project_id=project_id,
+        message_type=message_type,
+        content=content,
+        related_item_id=related_item_id,
+        requires_response=requires_response,
+    )
+
+    # Emit ORCHESTRATOR.MESSAGE_SENT event
+    msg_env = envelope(
+        event_type="ORCHESTRATOR.MESSAGE_SENT",
+        payload={
+            "project_id": project_id,
+            "message_id": message.id,
+            "message_type": message_type,
+            "content": content,
+            "related_item_id": related_item_id,
+            "requires_response": requires_response,
+        },
+        source="orchestrator",
+        correlation_id=correlation_id or str(uuid.uuid4()),
+        causation_id=causation_id,
+    )
+    r.xadd(settings.stream_name, {"event": json.dumps(msg_env)})
+    log.info("Sent customer message %s for project %s", message.id, project_id)
+
+
 # ----------------------------
 # Core consumer logic (mostly your original structure)
 # ----------------------------
@@ -147,6 +194,7 @@ def process_message(
     reg,
     store: BacklogStore,
     qstore: QuestionStore,
+    pstore: ProjectStore,
     settings: Settings,
     group: str,
     msg_id: str,
@@ -154,10 +202,13 @@ def process_message(
 ) -> None:
     global trace_logger
     global metrics
+    global project_store
     if trace_logger is None:
         trace_logger = TraceLogger(prefix=settings.trace_prefix)
     if metrics is None:
         metrics = MetricsRecorder(prefix=settings.metrics_prefix)
+    if project_store is None:
+        project_store = pstore
     # parse
     if "event" not in fields:
         _dlq(r, "missing field 'event'", fields)
@@ -346,6 +397,119 @@ def process_message(
             metrics.inc("human_approval_completed")
             _dispatch_ready_tasks(r, settings, store, corr, caus)
 
+        elif event_type == "USER.PROMPT_SUBMITTED":
+            # Handle user prompts from the web interface
+            project_id = payload["project_id"]
+            prompt = payload.get("prompt", "")
+            interaction_id = payload.get("interaction_id")
+            context = payload.get("context", [])
+
+            log.info("Processing user prompt for project %s: %s", project_id, prompt[:50])
+            metrics.inc("user_prompt_received")
+
+            # Record the interaction in project store
+            if pstore:
+                pstore.add_interaction(
+                    project_id=project_id,
+                    interaction_type="system_response",
+                    content=f"Received prompt: {prompt[:100]}...",
+                    metadata={"interaction_id": interaction_id},
+                )
+
+            # Analyze prompt and determine if tasks need to be created or questions answered
+            # For now, send acknowledgment message to customer
+            if pstore:
+                _send_customer_message(
+                    r, settings, pstore, project_id,
+                    message_type="status_update",
+                    content=f"Your request is being processed: {prompt[:100]}...",
+                    requires_response=False,
+                    correlation_id=corr,
+                    causation_id=caus,
+                )
+
+            # Check if there are blocked items that need attention
+            blocked_items = list(store.iter_items_by_status(project_id, "BLOCKED"))
+            if blocked_items:
+                # Send clarification request to customer
+                for item in blocked_items:
+                    open_questions = qstore.list_open(project_id)
+                    for qid in open_questions:
+                        q = qstore.get_question(project_id, qid)
+                        if q and q.get("backlog_item_id") == item["id"]:
+                            if pstore:
+                                _send_customer_message(
+                                    r, settings, pstore, project_id,
+                                    message_type="clarification",
+                                    content=q.get("question_text", "Clarification needed"),
+                                    related_item_id=item["id"],
+                                    requires_response=True,
+                                    correlation_id=corr,
+                                    causation_id=caus,
+                                )
+
+        elif event_type == "CUSTOMER.MESSAGE_RESPONDED":
+            # Handle customer responses to orchestrator messages
+            project_id = payload["project_id"]
+            message_id = payload["message_id"]
+            response = payload.get("response", "")
+            related_item_id = payload.get("related_item_id")
+
+            log.info("Processing customer response for project %s, message %s", project_id, message_id)
+            metrics.inc("customer_message_responded")
+
+            # Record the response interaction
+            if pstore:
+                pstore.add_interaction(
+                    project_id=project_id,
+                    interaction_type="user_input",
+                    content=f"Customer response: {response}",
+                    metadata={"message_id": message_id, "related_item_id": related_item_id},
+                )
+
+            # If related to a blocked item, try to unblock it
+            if related_item_id:
+                item = store.get_item(project_id, related_item_id)
+                if item and item.get("status") == "BLOCKED":
+                    # Check if there's an open question for this item
+                    open_questions = qstore.list_open(project_id)
+                    for qid in open_questions:
+                        q = qstore.get_question(project_id, qid)
+                        if q and q.get("backlog_item_id") == related_item_id:
+                            # Use the response as the answer
+                            qstore.set_answer(project_id, qid, response)
+                            qstore.close_question(project_id, qid)
+                            _apply_status_safe(store, project_id, related_item_id, BacklogStatus.READY)
+
+                            # Emit unblocked event
+                            ub_env = envelope(
+                                event_type="BACKLOG.ITEM_UNBLOCKED",
+                                payload={
+                                    "project_id": project_id,
+                                    "backlog_item_id": related_item_id,
+                                    "question_id": qid,
+                                },
+                                source="orchestrator",
+                                correlation_id=corr,
+                                causation_id=caus,
+                            )
+                            r.xadd(settings.stream_name, {"event": json.dumps(ub_env)})
+                            break
+
+                    # Try to dispatch ready tasks
+                    _dispatch_ready_tasks(r, settings, store, corr, caus)
+
+            # Send acknowledgment to customer
+            if pstore:
+                _send_customer_message(
+                    r, settings, pstore, project_id,
+                    message_type="status_update",
+                    content="Thank you for your response. We're processing your input.",
+                    requires_response=False,
+                    correlation_id=corr,
+                    causation_id=caus,
+                )
+
         # else: ignore other event_types for EPIC3 scope
 
     except Exception as e:
@@ -446,6 +610,7 @@ def main() -> None:
 
     store = BacklogStore(r, prefix=settings.key_prefix)
     qstore = QuestionStore(r, prefix=settings.key_prefix)
+    pstore = ProjectStore(r, prefix=settings.key_prefix)
 
     log.info("orchestrator listening stream=%s group=%s consumer=%s", settings.stream_name, group, consumer)
 
@@ -469,6 +634,7 @@ def main() -> None:
                 reg,
                 store,
                 qstore,
+                pstore,
                 settings,
                 group,
                 msg_id,

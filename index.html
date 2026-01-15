@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Agent Audit Interaction</title>
+  <title>Project Tracking - Agent Orchestrator</title>
   <style>
     :root {
       font-family: Arial, sans-serif;
@@ -37,6 +37,7 @@
       margin-bottom: 10px;
       border: 1px solid #ccc;
       border-radius: 4px;
+      box-sizing: border-box;
     }
     textarea { min-height: 80px; }
     button {
@@ -47,6 +48,13 @@
       background: #111;
       color: #fff;
       font-weight: bold;
+    }
+    button:disabled {
+      background: #888;
+      cursor: not-allowed;
+    }
+    button.secondary {
+      background: #6b7280;
     }
     .subtext { color: #555; font-size: 0.9rem; }
     .stack { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
@@ -59,14 +67,53 @@
       font-weight: bold;
       font-size: 0.85rem;
     }
+    .project-id-display {
+      background: #f0f9ff;
+      border: 2px solid #0284c7;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    .project-id-display .label {
+      font-size: 0.85rem;
+      color: #0369a1;
+      font-weight: bold;
+    }
+    .project-id-display .value {
+      font-family: monospace;
+      font-size: 1.1rem;
+      color: #0c4a6e;
+      word-break: break-all;
+    }
     .error { color: #b00020; font-weight: bold; }
-    .question {
+    .success { color: #15803d; font-weight: bold; }
+    .question, .message {
       border: 1px solid #e1e1e1;
       border-radius: 6px;
       padding: 12px;
       margin-bottom: 10px;
       background: #fafafa;
     }
+    .message.unread {
+      border-left: 4px solid #0284c7;
+      background: #f0f9ff;
+    }
+    .message.requires-response {
+      border-left: 4px solid #f59e0b;
+      background: #fffbeb;
+    }
+    .message-type {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      font-weight: bold;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-right: 8px;
+    }
+    .message-type.clarification { background: #fef3c7; color: #b45309; }
+    .message-type.status_update { background: #dbeafe; color: #1d4ed8; }
+    .message-type.task_assignment { background: #dcfce7; color: #15803d; }
+    .message-type.completion { background: #f3e8ff; color: #7c3aed; }
     .status-block { font-weight: bold; }
     .muted { color: #6b7280; }
     .layout {
@@ -84,7 +131,7 @@
       color: #e5e7eb;
       padding: 12px;
       font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-      height: 460px;
+      height: 300px;
       overflow: auto;
       white-space: pre-wrap;
     }
@@ -106,74 +153,131 @@
     .badge.error { background: #fee2e2; color: #b91c1c; }
     .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
     .control-group { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
+    .interaction-history {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      padding: 8px;
+      background: #fafafa;
+    }
+    .interaction-item {
+      padding: 6px 0;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 0.9rem;
+    }
+    .interaction-item:last-child { border-bottom: none; }
+    .interaction-type {
+      font-size: 0.75rem;
+      font-weight: bold;
+      color: #6b7280;
+    }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
-  <h1>Agent-Based Audit Interface</h1>
-  <p class="muted">Backend HTTP API must be reachable on this origin. 404/Not Found responses are expected if the API is not running or routes differ.</p>
+  <h1>Project Tracking - Agent Orchestrator</h1>
+  <p class="muted">Interact with the AI orchestrator to manage your projects. Each project has a unique tracking ID for context continuity.</p>
+
+  <!-- Project ID Display -->
+  <div id="project-id-section" class="project-id-display hidden">
+    <div class="label">Active Project Tracking ID</div>
+    <div class="value" id="active-project-id">-</div>
+  </div>
 
   <div class="layout">
     <div>
+      <!-- Create Project Section -->
       <section id="init-section">
-        <h2>1️⃣ Submit Initial Audit Request</h2>
+        <h2>1. Create New Project</h2>
+        <p class="muted">Start a new project to get a unique tracking ID. This ID will be used to track all interactions.</p>
         <form id="init-form">
           <label for="project_name">Project name</label>
-          <input type="text" id="project_name" name="project_name" required>
+          <input type="text" id="project_name" name="project_name" required placeholder="My Audit Project">
 
-          <label for="request_text">Description / context</label>
-          <textarea id="request_text" name="request_text" required></textarea>
+          <label for="request_text">Description / Initial Request</label>
+          <textarea id="request_text" name="request_text" required placeholder="Describe what you need the orchestrator to do..."></textarea>
 
           <label for="file">Optional file upload (CSV / Excel)</label>
           <input type="file" id="file" name="file" accept=".csv, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
 
-          <button type="submit">Send audit request</button>
+          <button type="submit">Create Project</button>
         </form>
         <div id="init-feedback" class="subtext"></div>
       </section>
 
+      <!-- Prompt Interaction Section -->
+      <section id="prompt-section" class="hidden">
+        <h2>2. Interact with Orchestrator</h2>
+        <p class="muted">Send prompts to the orchestrator to manage tasks. Your project context is maintained.</p>
+        <form id="prompt-form">
+          <label for="prompt_text">Your Message</label>
+          <textarea id="prompt_text" name="prompt_text" required placeholder="Ask a question or give instructions to the orchestrator..."></textarea>
+          <button type="submit">Send to Orchestrator</button>
+        </form>
+        <div id="prompt-feedback" class="subtext"></div>
+      </section>
+
+      <!-- Messages from Orchestrator -->
+      <section id="messages-section" class="hidden">
+        <h2>3. Messages from Orchestrator</h2>
+        <p class="muted">The orchestrator will send messages here when clarification is needed or to provide updates.</p>
+        <div class="stack" style="margin-bottom: 8px;">
+          <button id="messages-refresh" type="button">Refresh Messages</button>
+          <label style="margin: 0; font-weight: normal;">
+            <input type="checkbox" id="unread-only"> Show unread only
+          </label>
+        </div>
+        <div id="messages-container"></div>
+        <div id="messages-error" class="error"></div>
+      </section>
+
+      <!-- Questions Section -->
       <section id="questions-section">
-        <h2>2️⃣ View Open Clarification Questions</h2>
-        <p class="muted">Polling backend every 5 seconds for open questions.</p>
+        <h2>4. Clarification Questions</h2>
+        <p class="muted">Polling backend every 5 seconds for open questions that need your input.</p>
         <div id="questions-container"></div>
         <div id="questions-error" class="error"></div>
       </section>
 
+      <!-- Project Status Section -->
       <section id="status-section">
-        <h2>4️⃣ Project Status (Read-only)</h2>
+        <h2>5. Project Status</h2>
         <div class="stack" style="margin-bottom: 8px;">
-          <button id="status-refresh" type="button">Refresh project status</button>
-          <span class="muted">Requires a project_id from the initial request.</span>
+          <button id="status-refresh" type="button">Refresh Status</button>
+          <span class="muted">Auto-refreshes every 5 seconds when a project is active.</span>
         </div>
-        <div id="project-status" class="subtext">No project tracked yet.</div>
+        <div id="project-status" class="subtext">No project tracked yet. Create a project to start.</div>
         <div id="status-error" class="error"></div>
       </section>
     </div>
 
-    <section id="log-section">
-      <h2>System Logs</h2>
-      <p class="muted">Central place to inspect backend activity. Filters operate locally; backend remains source of truth.</p>
-      <div class="controls" style="margin-bottom: 10px;">
-        <button id="logs-refresh" type="button">Fetch logs</button>
-        <div class="control-group">
-          <label for="log-filter" class="muted" style="margin: 0;">Text filter</label>
-          <input type="text" id="log-filter" placeholder="Search log messages" style="max-width: 320px; margin: 0;">
+    <!-- Right Column -->
+    <div>
+      <!-- Interaction History -->
+      <section id="history-section" class="hidden">
+        <h2>Interaction History</h2>
+        <p class="muted">Recent interactions with the orchestrator for this project.</p>
+        <div id="interaction-history" class="interaction-history">
+          <div class="muted">No interactions yet.</div>
         </div>
-        <div class="control-group" style="max-width: 160px;">
-          <label for="log-level" class="muted" style="margin: 0;">Level</label>
-          <select id="log-level" style="margin: 0;">
-            <option value="all">All</option>
-            <option value="error">Error</option>
-            <option value="warn">Warning</option>
-            <option value="info">Info</option>
-            <option value="other">Other</option>
-          </select>
+      </section>
+
+      <!-- System Logs -->
+      <section id="log-section">
+        <h2>System Logs</h2>
+        <div class="controls" style="margin-bottom: 10px;">
+          <button id="logs-refresh" type="button">Fetch</button>
+          <button id="logs-clear" class="secondary" type="button">Clear</button>
         </div>
-        <button id="logs-clear" class="secondary" type="button">Clear view</button>
-      </div>
-      <div id="logs-status" class="muted">No logs loaded.</div>
-      <div id="logs-error" class="error"></div>
-      <div id="log" class="log-panel"></div>
-    </section>
+        <div class="control-group" style="margin-bottom: 8px;">
+          <input type="text" id="log-filter" placeholder="Filter logs..." style="margin: 0;">
+        </div>
+        <div id="logs-status" class="muted">No logs loaded.</div>
+        <div id="logs-error" class="error"></div>
+        <div id="log" class="log-panel"></div>
+      </section>
+    </div>
   </div>
 
   <script src="app.js"></script>
