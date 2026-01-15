@@ -1,26 +1,62 @@
+/**
+ * Project Tracking Web Interface
+ * Manages interaction with the AI orchestrator through unique project IDs
+ */
 (() => {
+  // Application state
   const state = {
     projectId: null,
     questionPoll: null,
     statusPoll: null,
+    messagePoll: null,
     projects: [],
   };
 
-  const initForm = document.getElementById('init-form');
-  const initFeedback = document.getElementById('init-feedback');
-  const questionsContainer = document.getElementById('questions-container');
-  const questionsError = document.getElementById('questions-error');
-  const projectStatusBlock = document.getElementById('project-status');
-  const statusError = document.getElementById('status-error');
-  const statusRefreshBtn = document.getElementById('status-refresh');
-  const logsRefreshBtn = document.getElementById('logs-refresh');
-  const logsClearBtn = document.getElementById('logs-clear');
-  const logsStatus = document.getElementById('logs-status');
-  const logsError = document.getElementById('logs-error');
-  const logFilter = document.getElementById('log-filter');
-  const logLevelSelect = document.getElementById('log-level');
-  const logBlock = document.getElementById('log');
+  // DOM Elements
+  const elements = {
+    // Project ID display
+    projectIdSection: document.getElementById('project-id-section'),
+    activeProjectId: document.getElementById('active-project-id'),
 
+    // Init form
+    initForm: document.getElementById('init-form'),
+    initFeedback: document.getElementById('init-feedback'),
+
+    // Prompt section
+    promptSection: document.getElementById('prompt-section'),
+    promptForm: document.getElementById('prompt-form'),
+    promptFeedback: document.getElementById('prompt-feedback'),
+
+    // Messages section
+    messagesSection: document.getElementById('messages-section'),
+    messagesContainer: document.getElementById('messages-container'),
+    messagesError: document.getElementById('messages-error'),
+    messagesRefreshBtn: document.getElementById('messages-refresh'),
+    unreadOnlyCheckbox: document.getElementById('unread-only'),
+
+    // Questions section
+    questionsContainer: document.getElementById('questions-container'),
+    questionsError: document.getElementById('questions-error'),
+
+    // Status section
+    projectStatusBlock: document.getElementById('project-status'),
+    statusError: document.getElementById('status-error'),
+    statusRefreshBtn: document.getElementById('status-refresh'),
+
+    // History section
+    historySection: document.getElementById('history-section'),
+    interactionHistory: document.getElementById('interaction-history'),
+
+    // Logs section
+    logsRefreshBtn: document.getElementById('logs-refresh'),
+    logsClearBtn: document.getElementById('logs-clear'),
+    logsStatus: document.getElementById('logs-status'),
+    logsError: document.getElementById('logs-error'),
+    logFilter: document.getElementById('log-filter'),
+    logBlock: document.getElementById('log'),
+  };
+
+  // Log state
   // Project selection elements
   const projectSelect = document.getElementById('project-select');
   const refreshProjectsBtn = document.getElementById('refresh-projects');
@@ -35,9 +71,11 @@
   const logState = {
     entries: [],
     filterText: '',
-    filterLevel: 'all',
   };
 
+  // -------------------------
+  // Utility Functions
+  // -------------------------
   function normalizeLogEntry(entry, source = 'remote') {
     const normalized = { level: 'other', text: '', timestamp: '', source };
     if (entry && typeof entry === 'object') {
@@ -77,6 +115,49 @@
     return response.json();
   }
 
+  function showSection(element) {
+    element.classList.remove('hidden');
+  }
+
+  function hideSection(element) {
+    element.classList.add('hidden');
+  }
+
+  // -------------------------
+  // Project Management
+  // -------------------------
+  function setActiveProject(projectId) {
+    state.projectId = projectId;
+    elements.activeProjectId.textContent = projectId;
+    showSection(elements.projectIdSection);
+    showSection(elements.promptSection);
+    showSection(elements.messagesSection);
+    showSection(elements.historySection);
+
+    // Store in localStorage for persistence
+    localStorage.setItem('activeProjectId', projectId);
+
+    // Start polling
+    startPollingQuestions();
+    startStatusPolling();
+    startMessagePolling();
+
+    log(`Project activated: ${projectId}`);
+  }
+
+  function restoreActiveProject() {
+    const savedProjectId = localStorage.getItem('activeProjectId');
+    if (savedProjectId) {
+      setActiveProject(savedProjectId);
+      refreshProjectStatus();
+      loadCustomerMessages();
+      loadInteractionHistory();
+    }
+  }
+
+  // -------------------------
+  // Polling Functions
+  // -------------------------
   function startPollingQuestions() {
     if (state.questionPoll) return;
     state.questionPoll = setInterval(loadOpenQuestions, 5000);
@@ -92,179 +173,467 @@
     }, 5000);
   }
 
-  async function fetchLogs() {
-    logsError.textContent = '';
-    logsStatus.textContent = 'Loading logs...';
+  function startMessagePolling() {
+    if (state.messagePoll) return;
+    state.messagePoll = setInterval(() => {
+      if (state.projectId) {
+        loadCustomerMessages();
+      }
+    }, 5000);
+  }
+
+  // -------------------------
+  // Init Form Handler
+  // -------------------------
+  elements.initForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    elements.initFeedback.textContent = 'Creating project...';
+    elements.statusError.textContent = '';
+
+    const formData = new FormData(elements.initForm);
+
     try {
-      const data = await fetchJson('/api/logs');
-      const logs = Array.isArray(data) ? data : data?.logs || [];
-      // Normalize server logs to match our log entry format
-      logState.entries = logs.map((entry) => normalizeLogEntry(entry, entry.source || 'server'));
-      renderLogs();
-      logsStatus.textContent = `Loaded ${logs.length} logs.`;
+      const data = await fetchJson('/api/project/init', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const projectId = data?.project_id || data?.projectId;
+      if (projectId) {
+        setActiveProject(projectId);
+        elements.initFeedback.innerHTML = `<span class="success">Project created successfully!</span>`;
+        elements.initForm.reset();
+        refreshProjectStatus();
+      } else {
+        elements.initFeedback.textContent = `Project created but no ID returned.`;
+      }
     } catch (error) {
       console.error(error);
-      logsError.textContent = `Failed to load logs: ${error.message}`;
-      logsStatus.textContent = 'No logs loaded.';
+      elements.initFeedback.innerHTML = `<span class="error">Failed to create project: ${error.message}</span>`;
+    }
+  });
+
+  // -------------------------
+  // Prompt Form Handler
+  // -------------------------
+  elements.promptForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!state.projectId) {
+      elements.promptFeedback.innerHTML = '<span class="error">No active project. Create a project first.</span>';
+      return;
+    }
+
+    const promptText = document.getElementById('prompt_text').value.trim();
+    if (!promptText) {
+      elements.promptFeedback.innerHTML = '<span class="error">Please enter a message.</span>';
+      return;
+    }
+
+    elements.promptFeedback.textContent = 'Sending to orchestrator...';
+
+    try {
+      const data = await fetchJson(`/api/project/${state.projectId}/prompt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: state.projectId,
+          prompt: promptText,
+        }),
+      });
+
+      elements.promptFeedback.innerHTML = '<span class="success">Message sent to orchestrator!</span>';
+      document.getElementById('prompt_text').value = '';
+      log(`Prompt sent: ${promptText.substring(0, 50)}...`);
+
+      // Refresh interaction history
+      loadInteractionHistory();
+
+      // Clear feedback after delay
+      setTimeout(() => {
+        elements.promptFeedback.textContent = '';
+      }, 3000);
+    } catch (error) {
+      console.error(error);
+      elements.promptFeedback.innerHTML = `<span class="error">Failed to send: ${error.message}</span>`;
+    }
+  });
+
+  // -------------------------
+  // Customer Messages
+  // -------------------------
+  async function loadCustomerMessages() {
+    if (!state.projectId) return;
+
+    elements.messagesError.textContent = '';
+    const unreadOnly = elements.unreadOnlyCheckbox?.checked || false;
+
+    try {
+      const data = await fetchJson(`/api/project/${state.projectId}/messages?unread_only=${unreadOnly}`);
+      const messages = data?.messages || [];
+      renderMessages(messages);
+    } catch (error) {
+      console.error(error);
+      elements.messagesError.textContent = 'Failed to load messages.';
     }
   }
 
-  // ========================================================================
-  // Project Selection Functions
-  // ========================================================================
+  function renderMessages(messages) {
+    elements.messagesContainer.innerHTML = '';
 
-  async function loadProjects() {
-    projectSelectError.textContent = '';
-    try {
-      const data = await fetchJson('/api/projects');
-      state.projects = Array.isArray(data) ? data : [];
-      renderProjectSelect();
-      log('Projects list loaded.');
-    } catch (error) {
-      console.error(error);
-      projectSelectError.textContent = `Failed to load projects: ${error.message}`;
-    }
-  }
-
-  function renderProjectSelect() {
-    // Clear existing options except the first one
-    while (projectSelect.options.length > 1) {
-      projectSelect.remove(1);
+    if (!messages.length) {
+      const empty = document.createElement('div');
+      empty.className = 'muted';
+      empty.textContent = 'No messages from the orchestrator yet.';
+      elements.messagesContainer.appendChild(empty);
+      return;
     }
 
-    // Add projects to the dropdown
-    state.projects.forEach((project) => {
-      const option = document.createElement('option');
-      option.value = project.project_id;
-      option.textContent = `${project.title} (${project.status}) - ${project.project_id.slice(0, 8)}...`;
-      projectSelect.appendChild(option);
+    messages.forEach((msg) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'message';
+      if (msg.status === 'UNREAD') wrapper.classList.add('unread');
+      if (msg.requires_response) wrapper.classList.add('requires-response');
+
+      // Message type badge
+      const typeBadge = document.createElement('span');
+      typeBadge.className = `message-type ${msg.message_type}`;
+      typeBadge.textContent = msg.message_type?.replace('_', ' ') || 'message';
+      wrapper.appendChild(typeBadge);
+
+      // Timestamp
+      if (msg.timestamp) {
+        const time = document.createElement('span');
+        time.className = 'muted';
+        time.style.fontSize = '0.8rem';
+        time.textContent = new Date(msg.timestamp).toLocaleString();
+        wrapper.appendChild(time);
+      }
+
+      // Content
+      const content = document.createElement('p');
+      content.textContent = msg.content;
+      content.style.marginTop = '8px';
+      wrapper.appendChild(content);
+
+      // Response form if required
+      if (msg.requires_response && msg.status !== 'RESPONDED') {
+        const responseForm = document.createElement('div');
+        responseForm.style.marginTop = '10px';
+
+        const input = document.createElement('textarea');
+        input.placeholder = 'Type your response...';
+        input.style.width = '100%';
+        input.style.marginBottom = '8px';
+        input.rows = 2;
+
+        const btn = document.createElement('button');
+        btn.textContent = 'Send Response';
+        btn.addEventListener('click', () => respondToMessage(msg.id, input.value, btn, wrapper));
+
+        responseForm.appendChild(input);
+        responseForm.appendChild(btn);
+        wrapper.appendChild(responseForm);
+      }
+
+      // Mark as read button
+      if (msg.status === 'UNREAD') {
+        const readBtn = document.createElement('button');
+        readBtn.className = 'secondary';
+        readBtn.textContent = 'Mark as Read';
+        readBtn.style.marginTop = '8px';
+        readBtn.style.marginLeft = '8px';
+        readBtn.addEventListener('click', () => markMessageRead(msg.id, wrapper));
+        wrapper.appendChild(readBtn);
+      }
+
+      elements.messagesContainer.appendChild(wrapper);
     });
   }
 
-  function selectProject(projectId) {
-    if (!projectId) {
-      state.projectId = null;
-      selectedProjectInfo.textContent = '';
-      projectActions.style.display = 'none';
+  async function respondToMessage(messageId, response, button, wrapper) {
+    if (!response.trim()) {
+      alert('Please enter a response.');
       return;
     }
 
-    state.projectId = projectId;
-    const project = state.projects.find((p) => p.project_id === projectId);
-
-    if (project) {
-      selectedProjectInfo.innerHTML = `
-        <strong>Selected:</strong> ${project.title}<br>
-        <strong>ID:</strong> ${projectId}<br>
-        <strong>Status:</strong> ${project.status}<br>
-        <strong>Created:</strong> ${project.created_at || 'unknown'}
-      `;
-      projectActions.style.display = 'block';
-      refreshProjectStatus();
-      startStatusPolling();
-    }
-
-    log(`Selected project: ${projectId}`);
-  }
-
-  async function stopProject() {
-    if (!state.projectId) {
-      alert('No project selected.');
-      return;
-    }
-
-    if (!confirm('Are you sure you want to stop this project? This will halt all ongoing work items.')) {
-      return;
-    }
-
-    projectSelectError.textContent = '';
-    stopProjectBtn.disabled = true;
+    button.disabled = true;
+    button.textContent = 'Sending...';
 
     try {
-      const data = await fetchJson(`/api/project/${state.projectId}/stop`, {
-        method: 'POST',
-      });
-      log(`Project stopped: ${data.stopped_items} items stopped.`, 'warn');
-      alert(`Project stopped successfully. ${data.stopped_items} items were stopped.`);
-      loadProjects(); // Refresh the list
-      refreshProjectStatus();
-    } catch (error) {
-      console.error(error);
-      projectSelectError.textContent = `Failed to stop project: ${error.message}`;
-    } finally {
-      stopProjectBtn.disabled = false;
-    }
-  }
-
-  async function sendMessageToOrchestrator() {
-    if (!state.projectId) {
-      alert('No project selected.');
-      return;
-    }
-
-    const message = orchestratorMessage.value.trim();
-    if (!message) {
-      alert('Please enter a message.');
-      return;
-    }
-
-    messageFeedback.textContent = '';
-    sendMessageBtn.disabled = true;
-
-    try {
-      const data = await fetchJson(`/api/project/${state.projectId}/message`, {
+      await fetchJson(`/api/project/${state.projectId}/messages/${messageId}/respond`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message_id: messageId, response: response.trim() }),
       });
-      messageFeedback.textContent = `Message sent successfully to orchestrator.`;
-      log(`Message sent to orchestrator for project ${state.projectId}.`);
-      orchestratorMessage.value = '';
-      refreshProjectStatus();
+
+      wrapper.classList.remove('requires-response');
+      const status = document.createElement('div');
+      status.className = 'success';
+      status.textContent = 'Response sent!';
+      wrapper.appendChild(status);
+      log(`Responded to message ${messageId}`);
+      loadCustomerMessages();
     } catch (error) {
       console.error(error);
-      messageFeedback.textContent = `Failed to send message: ${error.message}`;
-    } finally {
-      sendMessageBtn.disabled = false;
+      button.disabled = false;
+      button.textContent = 'Send Response';
+      alert('Failed to send response: ' + error.message);
     }
   }
 
-  // Project selection event listeners
-  projectSelect.addEventListener('change', (event) => {
-    selectProject(event.target.value);
-  });
+  async function markMessageRead(messageId, wrapper) {
+    try {
+      await fetchJson(`/api/project/${state.projectId}/messages/${messageId}/read`, {
+        method: 'POST',
+      });
+      wrapper.classList.remove('unread');
+      loadCustomerMessages();
+    } catch (error) {
+      console.error(error);
+    }
+  }
 
-  refreshProjectsBtn.addEventListener('click', loadProjects);
-  stopProjectBtn.addEventListener('click', stopProject);
-  sendMessageBtn.addEventListener('click', sendMessageToOrchestrator);
+  // -------------------------
+  // Questions
+  // -------------------------
+  async function loadOpenQuestions() {
+    elements.questionsError.textContent = '';
+
+    try {
+      const params = state.projectId ? `?status=open&project_id=${state.projectId}` : '?status=open';
+      const data = await fetchJson(`/api/questions${params}`);
+      const questions = Array.isArray(data) ? data : data?.questions || [];
+      renderQuestions(questions);
+    } catch (error) {
+      console.error(error);
+      elements.questionsError.textContent = 'Failed to load questions.';
+    }
+  }
+
+  function renderQuestions(questions) {
+    elements.questionsContainer.innerHTML = '';
+
+    if (!questions.length) {
+      const empty = document.createElement('div');
+      empty.className = 'muted';
+      empty.textContent = 'No open questions right now.';
+      elements.questionsContainer.appendChild(empty);
+      return;
+    }
+
+    questions.forEach((q) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'question';
+      wrapper.dataset.questionId = q.question_id || q.id;
+
+      const title = document.createElement('div');
+      title.innerHTML = `<strong>Question ID:</strong> <code>${q.question_id || q.id}</code>`;
+      wrapper.appendChild(title);
+
+      if (q.backlog_item_id) {
+        const backlog = document.createElement('div');
+        backlog.innerHTML = `<strong>Related task:</strong> <code>${q.backlog_item_id}</code>`;
+        wrapper.appendChild(backlog);
+      }
+
+      const text = document.createElement('p');
+      text.textContent = q.question_text || q.text || 'No question text provided.';
+      text.style.fontWeight = 'bold';
+      wrapper.appendChild(text);
+
+      const expected = (q.expected_answer_type || q.answer_type || 'text').toLowerCase();
+      const label = document.createElement('label');
+      label.textContent = `Expected answer type: ${expected}`;
+      label.className = 'muted';
+      wrapper.appendChild(label);
+
+      const input = buildAnswerInput(expected, q);
+      wrapper.appendChild(input);
+
+      const submitBtn = document.createElement('button');
+      submitBtn.textContent = 'Submit Answer';
+      submitBtn.addEventListener('click', () => submitAnswer(q, input, wrapper, submitBtn));
+      wrapper.appendChild(submitBtn);
+
+      elements.questionsContainer.appendChild(wrapper);
+    });
+  }
+
+  function buildAnswerInput(expected, question) {
+    const input = document.createElement(expected === 'number' ? 'input' : 'textarea');
+    if (expected === 'number') {
+      input.type = 'number';
+    } else {
+      input.rows = 2;
+    }
+    input.placeholder = 'Enter your answer';
+    input.required = true;
+    input.dataset.expectedType = expected;
+    input.name = `answer-${question.question_id || question.id}`;
+    input.style.width = '100%';
+    input.style.marginBottom = '8px';
+    return input;
+  }
+
+  async function submitAnswer(question, input, wrapper, button) {
+    elements.questionsError.textContent = '';
+    const answerValue = input.value.trim();
+
+    if (!answerValue) {
+      alert('Answer cannot be empty.');
+      return;
+    }
+
+    button.disabled = true;
+    input.disabled = true;
+
+    try {
+      await fetchJson('/api/questions/answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question_id: question.question_id || question.id,
+          answer: answerValue,
+          project_id: state.projectId,
+        }),
+      });
+
+      const status = document.createElement('div');
+      status.className = 'success';
+      status.textContent = 'Answer submitted successfully!';
+      wrapper.appendChild(status);
+      log(`Answered question ${question.question_id || question.id}`);
+
+      // Refresh questions after a short delay
+      setTimeout(loadOpenQuestions, 1000);
+    } catch (error) {
+      console.error(error);
+      elements.questionsError.textContent = 'Failed to submit answer.';
+      button.disabled = false;
+      input.disabled = false;
+    }
+  }
+
+  // -------------------------
+  // Project Status
+  // -------------------------
+  async function refreshProjectStatus() {
+    elements.statusError.textContent = '';
+
+    if (!state.projectId) {
+      elements.projectStatusBlock.textContent = 'No project tracked yet. Create a project to start.';
+      return;
+    }
+
+    try {
+      const data = await fetchJson(`/api/project/${state.projectId}/status`);
+
+      elements.projectStatusBlock.innerHTML = `
+        <div><strong>Project ID:</strong> <code>${state.projectId}</code></div>
+        <div><strong>Name:</strong> ${data?.name || 'N/A'}</div>
+        <div><strong>State:</strong> <span class="pill">${data?.state || 'unknown'}</span></div>
+        <div><strong>Completion:</strong> ${data?.completion_percentage ?? 'N/A'}%</div>
+        <div><strong>Total Tasks:</strong> ${data?.total_items ?? 'N/A'}</div>
+        <div><strong>Completed:</strong> ${data?.completed_items ?? 'N/A'}</div>
+        <div><strong>In Progress:</strong> ${data?.in_progress_items ?? 'N/A'}</div>
+        <div><strong>Blocked:</strong> ${data?.blocked_items ?? 'N/A'}</div>
+      `;
+    } catch (error) {
+      console.error(error);
+      elements.statusError.textContent = 'Failed to load project status.';
+    }
+  }
+
+  // -------------------------
+  // Interaction History
+  // -------------------------
+  async function loadInteractionHistory() {
+    if (!state.projectId) return;
+
+    try {
+      const data = await fetchJson(`/api/project/${state.projectId}/interactions?limit=20`);
+      const interactions = data?.interactions || [];
+      renderInteractionHistory(interactions);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  function renderInteractionHistory(interactions) {
+    elements.interactionHistory.innerHTML = '';
+
+    if (!interactions.length) {
+      const empty = document.createElement('div');
+      empty.className = 'muted';
+      empty.textContent = 'No interactions yet.';
+      elements.interactionHistory.appendChild(empty);
+      return;
+    }
+
+    // Show most recent first
+    interactions.reverse().forEach((interaction) => {
+      const item = document.createElement('div');
+      item.className = 'interaction-item';
+
+      const type = document.createElement('span');
+      type.className = 'interaction-type';
+      type.textContent = interaction.type?.replace('_', ' ') || 'interaction';
+      item.appendChild(type);
+
+      const time = document.createElement('span');
+      time.className = 'muted';
+      time.style.marginLeft = '8px';
+      time.style.fontSize = '0.75rem';
+      time.textContent = new Date(interaction.timestamp).toLocaleTimeString();
+      item.appendChild(time);
+
+      const content = document.createElement('div');
+      content.textContent = interaction.content?.substring(0, 100) + (interaction.content?.length > 100 ? '...' : '');
+      item.appendChild(content);
+
+      elements.interactionHistory.appendChild(item);
+    });
+  }
+
+  // -------------------------
+  // Logs
+  // -------------------------
+  async function fetchLogs() {
+    elements.logsError.textContent = '';
+    elements.logsStatus.textContent = 'Loading logs...';
+
+    try {
+      const data = await fetchJson('/api/logs');
+      const logs = Array.isArray(data) ? data : data?.logs || [];
+      logState.entries = logs.map(e => normalizeLogEntry(e, 'remote'));
+      renderLogs();
+      elements.logsStatus.textContent = `Loaded ${logs.length} logs.`;
+    } catch (error) {
+      console.error(error);
+      elements.logsError.textContent = 'Failed to load logs.';
+      elements.logsStatus.textContent = 'No logs loaded.';
+    }
+  }
 
   function renderLogs() {
-    logBlock.innerHTML = '';
-    let filtered = logState.entries;
+    elements.logBlock.innerHTML = '';
 
-    // Apply text filter
-    if (logState.filterText) {
-      filtered = filtered.filter((entry) =>
-        (entry.text || '').toLowerCase().includes(logState.filterText)
-      );
-    }
-
-    // Apply level filter
-    if (logState.filterLevel && logState.filterLevel !== 'all') {
-      filtered = filtered.filter((entry) => entry.level === logState.filterLevel);
-    }
+    const filtered = logState.filterText
+      ? logState.entries.filter((entry) =>
+          entry.text.toLowerCase().includes(logState.filterText) ||
+          entry.level.toLowerCase().includes(logState.filterText)
+        )
+      : logState.entries;
 
     if (!filtered.length) {
       const empty = document.createElement('div');
       empty.className = 'muted';
-      empty.textContent = logState.entries.length
-        ? 'No logs match filter.'
-        : 'No logs available yet.';
-      logBlock.appendChild(empty);
+      empty.textContent = logState.entries.length ? 'No logs match filter.' : 'No logs available.';
+      elements.logBlock.appendChild(empty);
       return;
     }
 
-    filtered.forEach((entry) => {
+    filtered.slice(0, 100).forEach((entry) => {
       const row = document.createElement('div');
       row.className = 'log-row';
 
@@ -276,7 +645,7 @@
       if (entry.timestamp) {
         const meta = document.createElement('span');
         meta.className = 'log-meta';
-        meta.textContent = entry.timestamp;
+        meta.textContent = entry.timestamp.substring(11, 19);
         row.appendChild(meta);
       }
 
@@ -284,186 +653,31 @@
       text.textContent = entry.text;
       row.appendChild(text);
 
-      if (entry.source) {
-        const source = document.createElement('span');
-        source.className = 'muted';
-        source.style.marginLeft = '8px';
-        source.textContent = `(${entry.source})`;
-        row.appendChild(source);
-      }
-
-      logBlock.appendChild(row);
+      elements.logBlock.appendChild(row);
     });
   }
 
-  initForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    initFeedback.textContent = '';
-    statusError.textContent = '';
-    const formData = new FormData(initForm);
-    try {
-      const data = await fetchJson('/api/project/init', {
-        method: 'POST',
-        body: formData,
-      });
-      const projectId = data?.project_id || data?.projectId;
-      state.projectId = projectId;
-      initFeedback.textContent = `project_id: ${projectId || 'unknown'} | status: ${data?.status || 'CREATED'}`;
-      log('Initial audit request submitted.');
-      if (projectId) {
-        refreshProjectStatus();
-        startStatusPolling();
-      }
-    } catch (error) {
-      initFeedback.textContent = '';
-      statusError.textContent = '';
-      questionsError.textContent = '';
-      console.error(error);
-      alert('Initial request failed. Check console for details.');
-    }
+  // -------------------------
+  // Event Listeners
+  // -------------------------
+  elements.statusRefreshBtn.addEventListener('click', refreshProjectStatus);
+  elements.messagesRefreshBtn?.addEventListener('click', loadCustomerMessages);
+  elements.unreadOnlyCheckbox?.addEventListener('change', loadCustomerMessages);
+  elements.logsRefreshBtn.addEventListener('click', fetchLogs);
+  elements.logsClearBtn.addEventListener('click', () => {
+    logState.entries = [];
+    elements.logsStatus.textContent = 'Cleared log view.';
+    renderLogs();
   });
-
-  async function loadOpenQuestions() {
-    questionsError.textContent = '';
-    try {
-      const data = await fetchJson('/api/questions?status=open');
-      const questions = Array.isArray(data) ? data : data?.questions || [];
-      renderQuestions(questions);
-      log('Fetched open questions.');
-    } catch (error) {
-      console.error(error);
-      questionsError.textContent = 'Failed to load open questions. Backend is authoritative.';
-    }
-  }
-
-  function renderQuestions(questions) {
-    questionsContainer.innerHTML = '';
-    if (!questions.length) {
-      const empty = document.createElement('div');
-      empty.className = 'muted';
-      empty.textContent = 'No open questions right now.';
-      questionsContainer.appendChild(empty);
-      return;
-    }
-
-    questions.forEach((q) => {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'question';
-      wrapper.dataset.questionId = q.question_id || q.id;
-
-      const title = document.createElement('div');
-      title.innerHTML = `<strong>question_id:</strong> ${q.question_id || q.id}`;
-      wrapper.appendChild(title);
-
-      const backlog = document.createElement('div');
-      backlog.innerHTML = `<strong>related backlog_item_id:</strong> ${q.backlog_item_id || 'unknown'}`;
-      wrapper.appendChild(backlog);
-
-      const text = document.createElement('p');
-      text.textContent = q.question_text || q.text || 'No question text provided.';
-      wrapper.appendChild(text);
-
-      const expected = (q.expected_answer_type || q.answer_type || 'text').toLowerCase();
-      const label = document.createElement('label');
-      label.textContent = `Expected answer type: ${expected}`;
-      wrapper.appendChild(label);
-
-      const input = buildAnswerInput(expected, q);
-      wrapper.appendChild(input);
-
-      const submitBtn = document.createElement('button');
-      submitBtn.textContent = 'Submit answer';
-      submitBtn.addEventListener('click', () => submitAnswer(q, input, wrapper, submitBtn));
-      wrapper.appendChild(submitBtn);
-
-      questionsContainer.appendChild(wrapper);
-    });
-  }
-
-  function buildAnswerInput(expected, question) {
-    const input = document.createElement(expected === 'number' ? 'input' : 'textarea');
-    if (expected === 'number') {
-      input.type = 'number';
-    } else {
-      input.rows = 2;
-    }
-    input.placeholder = expected === 'choice' ? 'Provide the chosen value from backend options' : 'Enter answer';
-    input.required = true;
-    input.dataset.expectedType = expected;
-    input.name = `answer-${question.question_id || question.id}`;
-    input.style.width = '100%';
-    return input;
-  }
-
-  async function submitAnswer(question, input, wrapper, button) {
-    questionsError.textContent = '';
-    const answerValue = input.value.trim();
-    if (!answerValue) {
-      alert('Answer cannot be empty.');
-      return;
-    }
-    button.disabled = true;
-    input.disabled = true;
-    try {
-      await fetchJson('/api/questions/answer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question_id: question.question_id || question.id,
-          answer: answerValue,
-        }),
-      });
-      const status = document.createElement('div');
-      status.className = 'status-block';
-      status.textContent = 'Status: ANSWERED (awaiting backend confirmation)';
-      wrapper.appendChild(status);
-      log(`Answered question ${question.question_id || question.id}.`);
-      loadOpenQuestions();
-    } catch (error) {
-      console.error(error);
-      questionsError.textContent = 'Failed to submit answer. Backend controls question lifecycle.';
-      button.disabled = false;
-      input.disabled = false;
-    }
-  }
-
-  async function refreshProjectStatus() {
-    statusError.textContent = '';
-    if (!state.projectId) {
-      statusError.textContent = 'No project_id available. Submit an audit request first.';
-      return;
-    }
-    try {
-      const data = await fetchJson(`/api/project/${state.projectId}/status`);
-      projectStatusBlock.innerHTML = `
-        <div><strong>project_id:</strong> ${state.projectId}</div>
-        <div><strong>Current state:</strong> ${data?.state || 'unknown'}</div>
-        <div><strong>% completion:</strong> ${data?.completion_percentage ?? 'n/a'}</div>
-        <div><strong>Blocked items:</strong> ${data?.blocked_items ?? 'n/a'}</div>
-      `;
-      log('Project status refreshed.');
-    } catch (error) {
-      console.error(error);
-      statusError.textContent = 'Failed to load project status. Backend is the authority.';
-    }
-  }
-
-  statusRefreshBtn.addEventListener('click', refreshProjectStatus);
-  logsRefreshBtn.addEventListener('click', fetchLogs);
-  logFilter.addEventListener('input', (event) => {
+  elements.logFilter.addEventListener('input', (event) => {
     logState.filterText = (event.target.value || '').toLowerCase();
     renderLogs();
   });
-  logLevelSelect.addEventListener('change', (event) => {
-    logState.filterLevel = event.target.value;
-    renderLogs();
-  });
-  logsClearBtn.addEventListener('click', () => {
-    logState.entries = [];
-    logsStatus.textContent = 'Cleared log view.';
-    renderLogs();
-  });
 
+  // -------------------------
+  // Initialize
+  // -------------------------
+  restoreActiveProject();
   // Initialize
   startPollingQuestions();
   loadProjects(); // Load projects on startup
