@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "llm_config.v1.schema.json",
+  "title": "LLM Provider Configuration Schema",
+  "description": "Schema for validating LLM provider and agent configuration",
+  "type": "object",
+  "required": ["default_provider", "providers"],
+  "properties": {
+    "default_provider": {
+      "type": "string",
+      "enum": ["anthropic", "openai", "google", "local"],
+      "description": "Default LLM provider to use when none specified"
+    },
+    "default_models": {
+      "type": "object",
+      "description": "Default model for each provider",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "providers": {
+      "type": "object",
+      "description": "Provider-specific configurations",
+      "properties": {
+        "anthropic": { "$ref": "#/$defs/providerConfig" },
+        "openai": { "$ref": "#/$defs/providerConfig" },
+        "google": { "$ref": "#/$defs/providerConfig" },
+        "local": { "$ref": "#/$defs/providerConfig" }
+      },
+      "additionalProperties": false
+    },
+    "agent_configs": {
+      "type": "object",
+      "description": "Agent-specific LLM configurations",
+      "additionalProperties": { "$ref": "#/$defs/agentConfig" }
+    },
+    "fallback": {
+      "$ref": "#/$defs/fallbackConfig"
+    },
+    "cache": {
+      "$ref": "#/$defs/cacheConfig"
+    },
+    "monitoring": {
+      "$ref": "#/$defs/monitoringConfig"
+    }
+  },
+  "$defs": {
+    "providerConfig": {
+      "type": "object",
+      "required": ["enabled", "models"],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether this provider is enabled"
+        },
+        "api_base_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Base URL for the provider API"
+        },
+        "api_version": {
+          "type": "string",
+          "description": "API version string"
+        },
+        "models": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/modelConfig" },
+          "minItems": 1,
+          "description": "Available models for this provider"
+        },
+        "rate_limits": {
+          "$ref": "#/$defs/rateLimitConfig"
+        }
+      }
+    },
+    "modelConfig": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Model identifier used in API calls"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable model name"
+        },
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum output tokens"
+        },
+        "context_window": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum context window size in tokens"
+        },
+        "supports_tools": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether the model supports tool/function calling"
+        },
+        "supports_vision": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether the model supports image inputs"
+        }
+      }
+    },
+    "rateLimitConfig": {
+      "type": "object",
+      "properties": {
+        "requests_per_minute": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum requests per minute"
+        },
+        "tokens_per_minute": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum tokens per minute"
+        }
+      }
+    },
+    "agentConfig": {
+      "type": "object",
+      "required": ["provider", "model"],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enum": ["anthropic", "openai", "google", "local"],
+          "description": "LLM provider for this agent"
+        },
+        "model": {
+          "type": "string",
+          "description": "Model identifier to use"
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 0.7,
+          "description": "Sampling temperature"
+        },
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum output tokens for this agent"
+        },
+        "system_prompt": {
+          "type": "string",
+          "description": "System prompt for the agent"
+        },
+        "top_p": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Top-p sampling parameter"
+        },
+        "stop_sequences": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Stop sequences for generation"
+        }
+      }
+    },
+    "fallbackConfig": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable automatic fallback"
+        },
+        "provider_order": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["anthropic", "openai", "google", "local"]
+          },
+          "description": "Order of providers to try on failure"
+        },
+        "max_retries": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 2,
+          "description": "Maximum retry attempts per provider"
+        },
+        "retry_backoff": {
+          "type": "number",
+          "minimum": 0,
+          "default": 1.5,
+          "description": "Backoff multiplier for retries"
+        }
+      }
+    },
+    "cacheConfig": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable response caching"
+        },
+        "ttl_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 3600,
+          "description": "Cache TTL in seconds"
+        },
+        "max_entries": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1000,
+          "description": "Maximum cache entries"
+        },
+        "include_temperature_in_key": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include temperature in cache key"
+        }
+      }
+    },
+    "monitoringConfig": {
+      "type": "object",
+      "properties": {
+        "log_requests": {
+          "type": "boolean",
+          "default": true,
+          "description": "Log request metadata"
+        },
+        "log_responses": {
+          "type": "boolean",
+          "default": false,
+          "description": "Log response content"
+        },
+        "log_token_usage": {
+          "type": "boolean",
+          "default": true,
+          "description": "Log token usage statistics"
+        },
+        "metrics_enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable metrics collection"
+        }
+      }
+    }
+  }
+}
