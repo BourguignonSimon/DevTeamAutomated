@@ -121,13 +121,13 @@ def _dlq(r, reason: str, original_fields: Any, schema_id: Optional[str] = None, 
     else:
         # Ensure all values are strings (Redis stream format requirement)
         original_fields = {k: str(v) if not isinstance(v, str) else v for k, v in original_fields.items()}
-    
+
     # If we have a decoded event but original_fields doesn't have 'event', add it
     # This preserves event metadata even when fields don't contain the event properly
     if original_event and "event" not in original_fields:
         original_fields = original_fields.copy()
         original_fields["event"] = json.dumps(original_event)
-    
+
     publish_dlq(
         r,
         Settings().dlq_stream,  # safe: reads env defaults

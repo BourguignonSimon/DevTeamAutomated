@@ -191,6 +191,35 @@
       <section id="init-section">
         <h2>1. Create New Project</h2>
         <p class="muted">Start a new project to get a unique tracking ID. This ID will be used to track all interactions.</p>
+      <section id="project-select-section">
+        <h2>Select Ongoing Project</h2>
+        <p class="muted">Select an existing project to manage or send messages to the orchestrator.</p>
+        <div class="stack" style="margin-bottom: 10px;">
+          <select id="project-select" style="max-width: 400px; margin: 0;">
+            <option value="">-- Select a project --</option>
+          </select>
+          <button id="refresh-projects" type="button">Refresh List</button>
+        </div>
+        <div id="selected-project-info" class="subtext"></div>
+        <div id="project-select-error" class="error"></div>
+
+        <div id="project-actions" style="margin-top: 12px; display: none;">
+          <div class="stack" style="margin-bottom: 12px;">
+            <button id="stop-project-btn" type="button" style="background: #b91c1c;">Stop Project</button>
+            <span class="muted">This will stop all ongoing work items in the project.</span>
+          </div>
+
+          <div style="margin-top: 16px;">
+            <label for="orchestrator-message">Send Message to Orchestrator</label>
+            <textarea id="orchestrator-message" placeholder="Enter your request or message for the orchestrator..." rows="3"></textarea>
+            <button id="send-message-btn" type="button">Send Message</button>
+          </div>
+          <div id="message-feedback" class="subtext"></div>
+        </div>
+      </section>
+
+      <section id="init-section">
+        <h2>Create New Project</h2>
         <form id="init-form">
           <label for="project_name">Project name</label>
           <input type="text" id="project_name" name="project_name" required placeholder="My Audit Project">

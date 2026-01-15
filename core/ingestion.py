@@ -149,7 +149,7 @@ def normalize_rows(rows: Sequence[Mapping[str, object]]) -> List[Dict[str, objec
         normalized_rows.append(
             {
                 "title": text,
-                "category": infer_category(category_raw, text),
+                "category": infer_category(str(category_raw) if category_raw else "", text),
                 "estimated_minutes": estimate_duration_minutes(duration_raw, text),
                 "source_row": dict(row),
             }

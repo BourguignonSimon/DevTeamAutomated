@@ -9,7 +9,8 @@ from typing import Any, Dict
 
 def _load_json(path: str) -> Dict[str, Any]:
     with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        result: Dict[str, Any] = json.load(f)
+        return result
 
 
 def _resolve_base_dir(base_dir: str) -> str:
