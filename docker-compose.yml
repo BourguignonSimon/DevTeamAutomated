@@ -217,6 +217,27 @@ services:
       redis:
         condition: service_healthy
 
+  web_gateway:
+    build:
+      context: .
+      dockerfile: services/web_gateway/Dockerfile
+    container_name: audit_web_gateway
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      STREAM_NAME: audit:events
+      KEY_PREFIX: audit
+      NAMESPACE: audit
+      LOG_LEVEL: INFO
+      WEB_GATEWAY_PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      orchestrator:
+        condition: service_started
+
   tests:
     build:
       context: .

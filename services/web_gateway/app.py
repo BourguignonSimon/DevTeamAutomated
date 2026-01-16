@@ -22,8 +22,7 @@ import redis
 try:
     from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
     from fastapi.middleware.cors import CORSMiddleware
-    from fastapi.responses import JSONResponse
-    from fastapi.staticfiles import StaticFiles
+    from fastapi.responses import FileResponse, JSONResponse
     from pydantic import BaseModel
 except ImportError:
     from services.order_intake_agent.fastapi_compat import (
@@ -36,8 +35,8 @@ except ImportError:
         UploadFile,
     )
     CORSMiddleware = None
-    StaticFiles = None
     BaseModel = object
+    FileResponse = None
 
 from core.backlog_store import BacklogStore
 from core.config import Settings
@@ -240,7 +239,7 @@ def create_app(deps: Dependencies | None = None) -> FastAPI:
             "project_id": project_id,
             "status": project.status,
             "event_id": env["event_id"],
-            "redis_id": redis_id,
+            "redis_id": redis_id.decode() if isinstance(redis_id, bytes) else redis_id,
             "message": "Project created successfully. The orchestrator will process your request.",
         })
 
@@ -440,7 +439,7 @@ def create_app(deps: Dependencies | None = None) -> FastAPI:
             correlation_id=correlation_id,
             causation_id=None,
         )
-        redis_id = deps.redis.xadd(deps.settings.stream_name, {"event": json.dumps(env)})
+        deps.redis.xadd(deps.settings.stream_name, {"event": json.dumps(env)})
 
         _log_event(deps, "info", f"Answer submitted for question {question_id}")
 
@@ -545,8 +544,36 @@ def create_app(deps: Dependencies | None = None) -> FastAPI:
         """Get system logs for the web interface."""
         logs = deps.logs[-limit:]
         if level:
-            logs = [l for l in logs if l.get("level") == level]
+            logs = [lg for lg in logs if lg.get("level") == level]
         return JSONResponse({"logs": logs})
+
+    # -------------------------
+    # Static Files
+    # -------------------------
+    from pathlib import Path
+    project_root = Path(__file__).parent.parent.parent
+
+    @app.get("/")
+    async def serve_index():
+        """Serve the main index.html file."""
+        index_path = project_root / "index.html"
+        if not index_path.exists():
+            raise HTTPException(status_code=404, detail="Frontend not found")
+        if FileResponse:
+            return FileResponse(index_path)
+        with open(index_path) as f:
+            return JSONResponse({"html": f.read()})
+
+    @app.get("/app.js")
+    async def serve_app_js():
+        """Serve the main app.js file."""
+        js_path = project_root / "app.js"
+        if not js_path.exists():
+            raise HTTPException(status_code=404, detail="app.js not found")
+        if FileResponse:
+            return FileResponse(js_path, media_type="application/javascript")
+        with open(js_path) as f:
+            return JSONResponse({"js": f.read()})
 
     # -------------------------
     # Health Check
@@ -591,7 +618,7 @@ def main() -> None:
     """Run the web gateway server."""
     import uvicorn
 
-    port = int(os.getenv("WEB_GATEWAY_PORT", "8000"))
+    port = int(os.getenv("WEB_GATEWAY_PORT", "3000"))
     host = os.getenv("WEB_GATEWAY_HOST", "0.0.0.0")
     log.info(f"Starting web gateway on {host}:{port}")
     uvicorn.run(app, host=host, port=port)

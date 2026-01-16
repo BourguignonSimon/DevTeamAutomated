@@ -29,6 +29,7 @@ env/
 ENV/
 
 # Testing
+# Note: tests/ is NOT ignored - needed for Docker builds
 .pytest_cache/
 .coverage
 htmlcov/
@@ -47,6 +48,7 @@ htmlcov/
 Thumbs.db
 
 # Project specific
+# Note: demo/ is NOT ignored - needed for Docker builds
 reports/
 tmp/
 temp/

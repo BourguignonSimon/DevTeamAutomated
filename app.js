@@ -9,7 +9,6 @@
     questionPoll: null,
     statusPoll: null,
     messagePoll: null,
-    projects: [],
   };
 
   // DOM Elements
@@ -57,17 +56,6 @@
   };
 
   // Log state
-  // Project selection elements
-  const projectSelect = document.getElementById('project-select');
-  const refreshProjectsBtn = document.getElementById('refresh-projects');
-  const selectedProjectInfo = document.getElementById('selected-project-info');
-  const projectSelectError = document.getElementById('project-select-error');
-  const projectActions = document.getElementById('project-actions');
-  const stopProjectBtn = document.getElementById('stop-project-btn');
-  const orchestratorMessage = document.getElementById('orchestrator-message');
-  const sendMessageBtn = document.getElementById('send-message-btn');
-  const messageFeedback = document.getElementById('message-feedback');
-
   const logState = {
     entries: [],
     filterText: '',
@@ -678,7 +666,6 @@
   // Initialize
   // -------------------------
   restoreActiveProject();
-  // Initialize
   startPollingQuestions();
   loadProjects(); // Load projects on startup
 })();
