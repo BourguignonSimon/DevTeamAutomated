@@ -667,4 +667,5 @@
   // -------------------------
   restoreActiveProject();
   startPollingQuestions();
+  loadProjects(); // Load projects on startup
 })();

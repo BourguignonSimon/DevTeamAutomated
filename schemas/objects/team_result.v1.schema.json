@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/objects/team_result.v1.schema.json",
+  "title": "Team result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["team_id", "summary", "artifacts", "details"],
+  "properties": {
+    "team_id": {"type": "string"},
+    "summary": {"type": "string"},
+    "artifacts": {
+      "type": "array",
+      "items": {"type": "object", "additionalProperties": true}
+    },
+    "details": {"type": "object", "additionalProperties": true}
+  }
+}

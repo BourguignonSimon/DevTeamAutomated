@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/objects/execution_plan.v1.schema.json",
+  "title": "Execution plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["plan_id", "team_id", "strategy", "tasks"],
+  "properties": {
+    "plan_id": {"type": "string", "format": "uuid"},
+    "team_id": {"type": "string"},
+    "strategy": {"type": "string"},
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["name", "description"],
+        "properties": {
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "payload": {"type": "object", "additionalProperties": true}
+        }
+      }
+    }
+  }
+}

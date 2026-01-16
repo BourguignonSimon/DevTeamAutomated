@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/team.synthesis_complete.v1.schema.json",
+  "title": "TEAM.SYNTHESIS_COMPLETE payload v1",
+  "x_event_type": "TEAM.SYNTHESIS_COMPLETE",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project_id", "team_id", "summary", "result"],
+  "properties": {
+    "project_id": {"type": "string", "format": "uuid"},
+    "team_id": {"type": "string"},
+    "summary": {"type": "string"},
+    "result": {
+      "$ref": "https://audit-flash-os/schemas/objects/team_result.v1.schema.json"
+    }
+  }
+}

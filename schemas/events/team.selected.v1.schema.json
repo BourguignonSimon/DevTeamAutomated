@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/team.selected.v1.schema.json",
+  "title": "TEAM.SELECTED payload v1",
+  "x_event_type": "TEAM.SELECTED",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project_id", "team_id", "reason"],
+  "properties": {
+    "project_id": {"type": "string", "format": "uuid"},
+    "team_id": {"type": "string"},
+    "reason": {"type": "string"},
+    "plan": {
+      "$ref": "https://audit-flash-os/schemas/objects/execution_plan.v1.schema.json"
+    }
+  }
+}

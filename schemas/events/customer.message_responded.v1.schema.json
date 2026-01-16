@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/customer.message_responded.v1.schema.json",
+  "title": "CUSTOMER.MESSAGE_RESPONDED payload v1",
+  "description": "Event emitted when a customer responds to a message from the orchestrator",
+  "x_event_type": "CUSTOMER.MESSAGE_RESPONDED",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project_id",
+    "message_id",
+    "response"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique project tracking ID"
+    },
+    "message_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ID of the message being responded to"
+    },
+    "response": {
+      "type": "string",
+      "description": "The customer's response text"
+    },
+    "related_item_id": {
+      "type": ["string", "null"],
+      "description": "Related backlog item ID if applicable"
+    }
+  }
+}

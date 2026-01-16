@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audit-flash-os/schemas/events/orchestrator.message_sent.v1.schema.json",
+  "title": "ORCHESTRATOR.MESSAGE_SENT payload v1",
+  "description": "Event emitted when the orchestrator sends a message to the customer via the web interface",
+  "x_event_type": "ORCHESTRATOR.MESSAGE_SENT",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project_id",
+    "message_id",
+    "message_type",
+    "content"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique project tracking ID"
+    },
+    "message_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique message ID"
+    },
+    "message_type": {
+      "type": "string",
+      "enum": ["clarification", "status_update", "task_assignment", "completion"],
+      "description": "Type of message being sent"
+    },
+    "content": {
+      "type": "string",
+      "description": "The message content"
+    },
+    "related_item_id": {
+      "type": ["string", "null"],
+      "description": "Related backlog item ID if applicable"
+    },
+    "requires_response": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the message requires a response from the customer"
+    }
+  }
+}

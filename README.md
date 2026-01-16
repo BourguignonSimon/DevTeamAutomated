@@ -1,212 +1,477 @@
-# Agentic Workflow 
+# DevTeamAutomated - Agentic Workflow Platform
 
-Agentic Workflow is a general-purpose event-driven workflow toolkit. It ships with an audit-themed default configuration, but every key namespace and stream name can be overridden so the same package works for any workflow domain. It will be used for any automation/process simplification using agentic AI fully organized.
+A powerful event-driven workflow automation platform that orchestrates AI agents to handle complex multi-step workflows. Built on Redis Streams with support for multiple LLM providers.
 
-## About
+---
 
-**Description:** Workflow événementiel et agents IA pour orchestrer des processus, valider des événements, et produire des livrables automatisés via Redis Streams.  
-**Topics:** `python`, `ai-agents`, `redis-streams`, `orchestrator`, `automation`  
-**Website/Demo:** [`docs/TOOL_USAGE.md`](docs/TOOL_USAGE.md) (guide pas-à-pas avec exécution locale et démos HTTP)
+## Table of Contents
 
-This package includes:
-- strict JSON contracts (EventEnvelope + payload schemas) and a generic validator consumer.
-- Orchestrator (state machine, backlog generation, dispatch, DoD enforcement).
-- AI agent teams design for audit operations (see `docs/EPIC5_AI_AGENT_TEAMS.md`).
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Quick Start](#quick-start)
+- [Documentation](#documentation)
+- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [Configuration](#configuration)
+- [Web Interface](#web-interface)
+- [API Endpoints](#api-endpoints)
+- [Testing](#testing)
+- [Contributing](#contributing)
+- [License](#license)
 
-For a step-by-step usage walkthrough (Docker Compose, Python entrypoints, HTTP gateway, and order intake flows), see
-`docs/TOOL_USAGE.md`.
+---
 
-## Quickstart (runtime stack)
+## Overview
 
-Bring up Redis, orchestrator, schema validator, and worker agents with Docker Compose:
+DevTeamAutomated is a general-purpose event-driven workflow toolkit designed for orchestrating AI agents across various domains:
+
+- **Audit Operations** - Automated audit workflows and compliance checks
+- **Healthcare** - Clinical workflow automation
+- **Financial Services** - Financial process automation
+- **Manufacturing** - Production workflow management
+- **DevSecOps** - Security review and vulnerability management
+- **CI/CD** - Release governance and pipeline automation
+
+The platform provides a robust foundation for building AI-powered automation solutions with built-in support for:
+- Event sourcing and replay
+- Multi-provider LLM integration (Anthropic, OpenAI, Google Gemini, Local LLMs)
+- Distributed task processing
+- Human-in-the-loop workflows
+- Dead letter queues for error handling
+
+---
+
+## Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **Event-Driven Architecture** | All state changes are events published to Redis Streams with full correlation tracking |
+| **Multi-Provider LLM Support** | Seamlessly switch between Anthropic Claude, OpenAI GPT, Google Gemini, and local LLMs |
+| **AI Agent Teams** | Specialized agent teams for analysis, admin, email, writing, and support tasks |
+| **Human-in-the-Loop** | Built-in clarification system for human approval and input |
+| **Dead Letter Queue** | Automatic error handling with DLQ for failed events |
+| **Distributed Locks** | Redis-based mutual exclusion for concurrent operations |
+| **Schema Validation** | Strict JSON Schema contracts for all events |
+| **Idempotent Processing** | Guaranteed exactly-once processing with deduplication |
+| **Web Interface** | Real-time project management dashboard |
+| **REST API** | Full HTTP API for integration |
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+- Docker and Docker Compose
+- Git
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/your-org/DevTeamAutomated.git
+cd DevTeamAutomated
+```
+
+### 2. Configure Environment
+
+```bash
+cp .env.example .env
+# Edit .env with your API keys (optional for test mode)
+```
+
+### 3. Start the Platform
 
 ```bash
 docker compose up --build
 ```
 
-### Use a custom namespace
+### 4. Access the Web Interface
 
-By default, stream names and Redis keys use the `audit` namespace. To reuse the toolkit for other workflows, override the namespace or specific prefixes:
+Open your browser and navigate to:
+- **Frontend Dashboard**: http://localhost:3000
+- **LLM Gateway**: http://localhost:8000
+- **Order Intake**: http://localhost:8080
+
+### 5. Create Your First Project
+
+Using the web interface or curl:
 
 ```bash
-export NAMESPACE=workflow
-# Optional granular overrides:
-# export STREAM_NAME=workflow:events
-# export DLQ_STREAM=workflow:dlq
-# export KEY_PREFIX=workflow
+curl -X POST http://localhost:3000/api/projects \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "My First Project", "description": "Automated workflow demo"}'
 ```
 
-### Personalizations for new domains
+---
 
-The default configuration is audit-focused, but the solution is designed to be universal. To demonstrate its flexibility, here are ready-to-use examples:
+## Documentation
 
-- **Preset namespaces (examples)**: adapt streams/keys to other sectors.
-  - **Healthcare**: `export NAMESPACE=healthcare`
-  - **Financial services**: `export NAMESPACE=finserv`
-  - **Manufacturing**: `export NAMESPACE=manufacturing`
-- **Additional agent team templates**: extend the toolkit to other workflows.
-  - **DevSecOps Review Team**: vulnerability validation, finding triage, remediation planning.
-  - **CI/CD Release Team**: release governance, pipeline reviews, deployment tracking.
+| Document | Description |
+|----------|-------------|
+| [Installation Guide](docs/INSTALLATION.md) | Detailed setup instructions for all environments |
+| [Configuration Reference](docs/CONFIGURATION.md) | Complete configuration options and environment variables |
+| [Architecture Overview](docs/ARCHITECTURE.md) | System design and component interaction |
+| [API Reference](docs/API_REFERENCE.md) | REST API endpoints and usage |
+| [Agent Teams Guide](docs/AGENT_TEAMS.md) | AI agent teams and collaboration patterns |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | Common issues and solutions |
+| [Tool Usage Guide](docs/TOOL_USAGE.md) | Step-by-step usage walkthrough |
+| [Security Best Practices](SECURITY.md) | Security considerations and recommendations |
 
-Redis is exposed on **localhost:6380**. Publish an intake event to trigger the flow:
+---
 
-```bash
-python - <<'PY'
-import json, uuid, redis
-from core.event_utils import envelope
+## Architecture
 
-r = redis.Redis(host="localhost", port=6380)
-env = envelope(
-    event_type="PROJECT.INITIAL_REQUEST_RECEIVED",
-    source="demo",
-    payload={"project_id": str(uuid.uuid4()), "request_text": "full audit"},
-    correlation_id=str(uuid.uuid4()),
-    causation_id=None,
-)
-r.xadd("audit:events", {"event": json.dumps(env)})
-print("seeded", env["event_id"])
-PY
+```
+                          +------------------+
+                          |   Web Frontend   |
+                          |   (Port 3000)    |
+                          +--------+---------+
+                                   |
+                          +--------v---------+
+                          |  Frontend API    |
+                          |    Gateway       |
+                          +--------+---------+
+                                   |
+        +-------------+------------+------------+-------------+
+        |             |            |            |             |
++-------v------+ +----v----+ +-----v-----+ +---v----+ +------v------+
+| Orchestrator | |Validator| | Workers   | |  LLM   | |Order Intake |
+|              | |         | | (6 types) | |Gateway | |   Agent     |
++--------------+ +---------+ +-----------+ +--------+ +-------------+
+        |             |            |            |             |
+        +-------------+------------+------------+-------------+
+                                   |
+                          +--------v---------+
+                          |  Redis Streams   |
+                          |  (Event Store)   |
+                          +------------------+
 ```
 
-Alternatively, you can drive the same flow over HTTP for quick demos:
+### Core Components
+
+| Component | Description |
+|-----------|-------------|
+| **Frontend API** | HTTP gateway for web interface and REST API |
+| **Orchestrator** | Generates backlogs, dispatches tasks, handles clarifications |
+| **Validator** | Schema validation consumer, routes invalid events to DLQ |
+| **Workers** | Specialized agents for different task types |
+| **LLM Gateway** | Multi-provider LLM abstraction layer |
+| **Redis Streams** | Persistent event log with consumer groups |
+
+---
+
+## Project Structure
+
+```
+DevTeamAutomated/
+├── core/                    # Core infrastructure modules
+│   ├── config.py           # Centralized settings
+│   ├── redis_streams.py    # Redis client helpers
+│   ├── stream_runtime.py   # Reliable event processor
+│   ├── schema_registry.py  # JSON Schema loading
+│   ├── llm_client.py       # Unified LLM interface
+│   ├── llm_config.py       # LLM configuration loader
+│   ├── agent_team.py       # Agent team base classes
+│   └── ...                 # Additional modules
+│
+├── services/               # Executable microservices
+│   ├── orchestrator/       # Task orchestration
+│   ├── frontend_api/       # HTTP API gateway
+│   ├── llm_gateway/        # LLM provider abstraction
+│   ├── stream_consumer/    # Schema validation
+│   ├── worker/             # Generic work processor
+│   ├── time_waste_worker/  # Time analysis agent
+│   ├── cost_worker/        # Cost estimation agent
+│   ├── friction_worker/    # Friction detection agent
+│   ├── scenario_worker/    # Savings projection agent
+│   ├── dev_worker/         # Development task agent
+│   ├── test_worker/        # Testing task agent
+│   ├── order_intake_agent/ # Order processing
+│   └── teams/              # AI agent teams
+│
+├── schemas/                # JSON Schema contracts
+│   ├── envelope/           # Event envelope schema
+│   ├── events/             # Event payload schemas
+│   └── objects/            # Domain object schemas
+│
+├── config/                 # Configuration files
+│   └── llm_config.yaml     # LLM provider configuration
+│
+├── docs/                   # Documentation
+├── tests/                  # Test suite
+├── demo/                   # Demo scripts
+│
+├── docker-compose.yml      # Development setup
+├── docker-compose.prod.yml # Production setup
+├── .env.example            # Environment template
+└── Makefile               # Build commands
+```
+
+---
+
+## Configuration
+
+### Environment Variables
+
+The platform uses environment variables for configuration. Copy `.env.example` to `.env` and customize:
 
 ```bash
-# in one terminal
+# Redis Connection
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_PASSWORD=              # Required in production
+
+# Namespace (audit, healthcare, finserv, manufacturing, devsecops, cicd)
+NAMESPACE=audit
+
+# LLM Configuration
+LLM_PROVIDER_ORDER=anthropic,openai,google,local
+LLM_TEST_MODE=true           # Set to false in production
+
+# API Keys (required when LLM_TEST_MODE=false)
+ANTHROPIC_API_KEY=sk-ant-xxx
+OPENAI_API_KEY=sk-xxx
+GEMINI_API_KEY=xxx
+```
+
+For complete configuration options, see [Configuration Reference](docs/CONFIGURATION.md).
+
+### LLM Configuration
+
+The platform supports multiple LLM providers with automatic fallback. Configure providers in `config/llm_config.yaml`:
+
+```yaml
+global:
+  default_provider: anthropic
+  fallback_order:
+    - anthropic
+    - openai
+    - google
+    - local
+  timeout_seconds: 120
+
+providers:
+  anthropic:
+    models:
+      claude-3-5-sonnet:
+        max_tokens: 8192
+        temperature: 0.7
+```
+
+---
+
+## Web Interface
+
+The web interface provides a real-time dashboard for managing projects and workflows.
+
+### Features
+
+- **Project Management** - Create, view, and manage projects
+- **Question Answering** - Respond to clarification requests
+- **Status Monitoring** - Real-time project status updates
+- **Log Viewer** - Filterable system logs with severity levels
+- **Orchestrator Messaging** - Send messages to the orchestrator
+
+### Screenshots
+
+Access the dashboard at http://localhost:3000 after starting the platform.
+
+---
+
+## API Endpoints
+
+### Frontend API (Port 3000)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/projects` | List all projects |
+| POST | `/api/projects` | Create new project |
+| GET | `/api/projects/:id/status` | Get project status |
+| POST | `/api/projects/:id/stop` | Stop a project |
+| POST | `/api/projects/:id/message` | Send message to orchestrator |
+| GET | `/api/questions` | Get open questions |
+| POST | `/api/questions/:id/answer` | Answer a question |
+| GET | `/api/logs` | Get system logs |
+
+### LLM Gateway (Port 8000)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check |
+| GET | `/v1/providers` | List available providers |
+| POST | `/v1/chat` | Chat completion |
+| POST | `/v1/predict` | General prediction |
+| POST | `/v1/extract/order` | Extract structured data |
+| GET | `/v1/usage` | Usage statistics |
+
+### Order Intake (Port 8080)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/orders/inbox` | Submit order (multipart form) |
+| GET | `/orders/pending-validation` | List pending orders |
+| POST | `/orders/:id/validate` | Validate/approve order |
+
+For complete API documentation, see [API Reference](docs/API_REFERENCE.md).
+
+---
+
+## Testing
+
+### Run All Tests
+
+```bash
+make test
+# or
+pytest
+```
+
+### Run Specific Tests
+
+```bash
+# Unit tests only
+pytest tests/ -m "not integration"
+
+# Integration tests (requires Docker)
+pytest tests/ -m integration
+
+# Specific test file
+pytest tests/test_llm_client.py -v
+```
+
+### Test Coverage
+
+```bash
+pytest --cov=core --cov=services --cov-report=html
+```
+
+---
+
+## Makefile Commands
+
+| Command | Description |
+|---------|-------------|
+| `make up` | Start all services with Docker Compose |
+| `make down` | Stop and remove all containers |
+| `make build` | Build Docker images |
+| `make logs` | Follow service logs |
+| `make ps` | List running containers |
+| `make test` | Run test suite |
+| `make demo` | Run all demo scripts |
+| `make demo-happy` | Run happy path demo |
+| `make demo-failure` | Run failure/DLQ demo |
+| `make demo-clarification` | Run clarification loop demo |
+
+---
+
+## Demo Scripts
+
+### Interactive Demo
+
+```bash
+python -m demo.interactive_demo
+```
+
+Provides a menu-driven interface for:
+- Sending intake events
+- Dispatching manual work
+- Simulating worker outputs
+- Viewing DLQ entries
+
+### Clarification Demo
+
+```bash
+python -m demo.clarification_demo
+```
+
+Demonstrates the human-in-the-loop clarification flow.
+
+### HTTP Gateway Demo
+
+```bash
+# Terminal 1
 python -m demo.http_gateway
 
-# in another terminal
+# Terminal 2
 curl -X POST http://localhost:8080/initial-request \
   -H 'Content-Type: application/json' \
   -d '{"request_text": "full audit via curl"}'
 ```
 
-### What to observe
+---
 
-1. Orchestrator generates a backlog and dispatches `WORK.ITEM_DISPATCHED`.
-2. Worker agents (time waste, cost, friction, scenario) consume dispatches targeted to them and emit `WORK.ITEM_STARTED`, `DELIVERABLE.PUBLISHED`, and `WORK.ITEM_COMPLETED`.
-3. Validator sends any contract violations to `audit:dlq` without blocking other consumers.
-
-### Manual demo without orchestrator
-
-You can send a ready-to-run dispatch directly to the stream to watch the agents produce deliverables end-to-end:
+## Inspecting Redis Streams
 
 ```bash
-python - <<'PY'
-import json, uuid, redis
-from core.event_utils import envelope
+# View recent events
+redis-cli -p 6380 XRANGE audit:events - + COUNT 20
 
-r = redis.Redis(host="localhost", port=6380)
-work_context = {
-    "rows": [
-        {"category": "ops", "estimated_minutes": 30, "text": "ticket triage"},
-        {"category": "meetings", "estimated_minutes": 45, "text": "status review"},
-    ],
-    "hourly_rate": 120,
-    "period": {"type": "monthly", "working_days": 20},
-}
-env = envelope(
-    event_type="WORK.ITEM_DISPATCHED",
-    source="demo",
-    payload={
-        "project_id": str(uuid.uuid4()),
-        "backlog_item_id": str(uuid.uuid4()),
-        "item_type": "AGENT_TASK",
-        "agent_target": "time_waste_worker",
-        "work_context": work_context,
-    },
-    correlation_id=str(uuid.uuid4()),
-    causation_id=None,
-)
-r.xadd("audit:events", {"event": json.dumps(env)})
-print("seeded dispatch", env["event_id"])
-PY
+# View deliverables
+redis-cli -p 6380 XRANGE audit:events - + COUNT 20 | grep DELIVERABLE
+
+# View DLQ entries
+redis-cli -p 6380 XRANGE audit:dlq - + COUNT 5
+
+# Reset consumer group
+redis-cli -p 6380 XGROUP DESTROY audit:events my_group
+redis-cli -p 6380 XGROUP CREATE audit:events my_group 0-0 MKSTREAM
 ```
 
-### Inspecting streams
+---
 
-- Recent deliverables: `redis-cli -p 6380 XRANGE audit:events - + COUNT 20 | grep DELIVERABLE`.
-- DLQ entries: `redis-cli -p 6380 XRANGE audit:dlq - + COUNT 5`.
+## Namespace Customization
 
-### Order intake demo (RUN mode)
-
-Run Docker Compose and use the order intake gateway (FastAPI-compatible stub) exposed on port 8080:
+By default, the platform uses the `audit` namespace. Switch to other domains:
 
 ```bash
-docker compose up --build order_intake_agent redis
+# Healthcare
+export NAMESPACE=healthcare
+
+# Financial Services
+export NAMESPACE=finserv
+
+# Manufacturing
+export NAMESPACE=manufacturing
+
+# DevSecOps
+export NAMESPACE=devsecops
+
+# CI/CD
+export NAMESPACE=cicd
 ```
 
-Submit an email-style order with attachments:
+Or use granular overrides:
 
 ```bash
-curl -X POST http://localhost:8080/orders/inbox \
-  -F from_email='user@example.com' \
-  -F subject='New order' \
-  -F delivery_address='123 Example St' \
-  -F delivery_date='2024-01-02' \
-  -F files=@./sample_order.xlsx
+export STREAM_NAME=custom:events
+export DLQ_STREAM=custom:dlq
+export KEY_PREFIX=custom
 ```
 
-List pending validations (orders that raised missing fields or anomalies):
+---
 
-```bash
-curl http://localhost:8080/orders/pending-validation
-```
+## Contributing
 
-Submit corrections/validation:
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-```bash
-curl -X POST http://localhost:8080/orders/<order_id>/validate \
-  -H 'Content-Type: application/json' \
-  -d '{"delivery": {"address": "123 Example St", "date": "2024-01-02"}}'
-```
+---
 
-### LLM gateway + human approval demo (RUN mode)
+## License
 
-The Docker Compose stack now includes a provider-agnostic LLM gateway (`llm_gateway`) used by the order intake agent. The order agent never calls providers directly; it always targets the gateway at `LLM_GATEWAY_URL`. See `docs/AI_AGENT_SOLUTION.md` for the full AI agent LLM mechanism and safety rails.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-1. Start the stack (Redis, order intake agent, and gateway):
+---
 
-   ```bash
-   docker compose up --build redis llm_gateway order_intake_agent
-   ```
+## Support
 
-2. Post an order inbox request with an Excel attachment as above. The gateway will generate a draft, but export is held for human approval.
+- **Issues**: [GitHub Issues](https://github.com/your-org/DevTeamAutomated/issues)
+- **Documentation**: [docs/](docs/)
+- **Changelog**: [CHANGELOG.md](CHANGELOG.md)
 
-3. Check pending validation items:
+---
 
-   ```bash
-   curl http://localhost:8080/orders/pending-validation
-   ```
-
-4. Approve the order (this is mandatory; no export occurs before validation):
-
-   ```bash
-   curl -X POST http://localhost:8080/orders/<order_id>/validate -H 'Content-Type: application/json' -d '{}'
-   ```
-
-5. After validation, the agent exports a CSV to the shared `storage/exports` directory (mounted from the host). Published events `ORDER.EXPORT_READY` and `DELIVERABLE.PUBLISHED` will now appear on the `audit:events` stream.
-
-Artifacts (uploaded attachments and generated CSV exports) are stored under `./storage` and indexed in Redis with a TTL.
-
-### Resetting consumer groups
-
-To delete and recreate a consumer group during local testing:
-
-```bash
-redis-cli -p 6380 XGROUP DESTROY audit:events time_waste_workers
-redis-cli -p 6380 XGROUP CREATE audit:events time_waste_workers 0-0 MKSTREAM
-```
-
-## Tests
-
-```bash
-make test
-```
-
-Reliability of the Redis Streams runtime (schema validation, retries, DLQ, and idempotence) is covered by dedicated unit tests:
-
-```bash
-pytest -q tests/test_reliable_runtime.py
-```
-
-Integration tests that exercise the real Compose stack are tagged `integration` and will be skipped automatically unless Docker is available.
+**Built with Redis Streams, FastAPI, and Multi-Provider LLM Support**
